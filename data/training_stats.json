@@ -1,0 +1,17 @@
+{
+  "total_packages": 3,
+  "packages_analyzed": [
+    "AgeChecker.1.0.1 4.nupkg",
+    "CrudOperation.1.0.1 2.nupkg",
+    "EmployeeOnboardingBot.1.0.1 2.nupkg"
+  ],
+  "total_activities_found": 89,
+  "total_activities_mapped": 89,
+  "success_rate_percent": 100.0,
+  "total_training_pairs": 70,
+  "output_files": [
+    "data\\training_pairs.json",
+    "data\\training_dataset_alpaca.json",
+    "data\\training_dataset_openai.jsonl"
+  ]
+}

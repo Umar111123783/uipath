@@ -1,0 +1,6 @@
+{
+  "Name": "EmployeeOnboardingBot",
+  "ProjectType": "Process",
+  "Description": "EmployeeOnboardingBot description",
+  "MainFile": "Main.xaml"
+}

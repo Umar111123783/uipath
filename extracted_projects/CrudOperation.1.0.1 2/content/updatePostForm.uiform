@@ -1,0 +1,47 @@
+﻿{
+  "Metadata": {
+    "Id": "ad257a26-6c7c-4644-986e-afbca96ec824",
+    "Kind": "FormIo"
+  },
+  "DesignProperties": {
+    "Title": "updatePostForm",
+    "Theme": "Default",
+    "ShowInTaskbar": true,
+    "ShowMargin": true,
+    "CustomStyle": ""
+  },
+  "Data": {
+    "components": [
+      {
+        "label": "Update Post Title",
+        "tableView": true,
+        "validate": {
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "key": "updatePostTitle",
+        "type": "textfield",
+        "input": true
+      },
+      {
+        "label": "Update Post Desc",
+        "tableView": true,
+        "validate": {
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "key": "updatePostDesc",
+        "type": "textfield",
+        "input": true
+      },
+      {
+        "type": "button",
+        "label": "Submit",
+        "key": "submit",
+        "disableOnInvalid": true,
+        "input": true,
+        "tableView": false
+      }
+    ]
+  }
+}

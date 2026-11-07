@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>EmployeeOnboardingBot</id>
+    <version>1.0.1</version>
+    <title>EmployeeOnboardingBot</title>
+    <authors>usharma090</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>EmployeeOnboardingBot description</description>
+    <tags>VisualBasic VB UiPathStudioProcess</tags>
+    <dependencies>
+      <group targetFramework="net8.0-windows7.0">
+        <dependency id="UiPath.Excel.Activities" version="[3.5.1]" />
+        <dependency id="UiPath.System.Activities.Runtime" version="[26.8.2]" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

@@ -1,0 +1,49 @@
+﻿{
+  "Metadata": {
+    "Id": "23b2321f-db76-4465-b1c4-d7194ee1cada",
+    "Kind": "FormIo"
+  },
+  "DesignProperties": {
+    "Title": "createNewPostForm",
+    "Theme": "Default",
+    "ShowInTaskbar": true,
+    "ShowMargin": true,
+    "CustomStyle": ""
+  },
+  "Data": {
+    "components": [
+      {
+        "label": "Post Title",
+        "placeholder": "Enter Post title",
+        "tableView": true,
+        "validate": {
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "key": "postTitle",
+        "type": "textfield",
+        "input": true
+      },
+      {
+        "label": "Post Desc",
+        "placeholder": "Enter post description",
+        "tableView": true,
+        "validate": {
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "key": "postDesc",
+        "type": "textfield",
+        "input": true
+      },
+      {
+        "type": "button",
+        "label": "Submit",
+        "key": "submit",
+        "disableOnInvalid": true,
+        "input": true,
+        "tableView": false
+      }
+    ]
+  }
+}

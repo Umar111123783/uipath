@@ -1,0 +1,6 @@
+{
+  "Name": "CrudOperation",
+  "ProjectType": "Process",
+  "Description": "Crud Operations",
+  "MainFile": "Main.xaml"
+}

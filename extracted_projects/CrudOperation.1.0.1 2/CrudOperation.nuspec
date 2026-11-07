@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>CrudOperation</id>
+    <version>1.0.1</version>
+    <title>CrudOperation</title>
+    <authors>usharma090</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Crud Operations</description>
+    <tags>VisualBasic VB UiPathStudioProcess UiPathForms</tags>
+    <dependencies>
+      <group targetFramework="net8.0-windows7.0">
+        <dependency id="UiPath.Excel.Activities" version="[3.5.1]" />
+        <dependency id="UiPath.Form.Activities" version="[26.4.0]" />
+        <dependency id="UiPath.System.Activities.Runtime" version="[26.8.2]" />
+        <dependency id="UiPath.WebAPI.Activities.Runtime" version="[2.5.2]" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>

@@ -1,0 +1,1249 @@
+[
+  {
+    "id": "AgeChecker_Main.xaml_act_2",
+    "bot_name": "AgeChecker",
+    "workflow_file": "Main.xaml",
+    "activity_type": "InputDialog",
+    "display_name": "Input Dialog",
+    "properties": {
+      "Options": "{x:Null}",
+      "OptionsString": "{x:Null}",
+      "DisplayName": "Input Dialog",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,273.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "InputDialog_1",
+      "IsPassword": "False",
+      "Label": "Please enter your age",
+      "Title": "Age Checker",
+      "TopMost": "False",
+      "Result": "[userAgeText]"
+    },
+    "robin_script": "Display.InputDialog.Show Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed"
+  },
+  {
+    "id": "AgeChecker_Main.xaml_act_5",
+    "bot_name": "AgeChecker",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,113.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_1",
+      "Text": "[\"You are an adult\"]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "AgeChecker_Main.xaml_act_7",
+    "bot_name": "AgeChecker",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,113.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_2",
+      "Text": "[\"You are a Minor\"]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "AgeChecker_Main.xaml_act_3",
+    "bot_name": "AgeChecker",
+    "workflow_file": "Main.xaml",
+    "activity_type": "If",
+    "display_name": "If",
+    "properties": {
+      "Condition": "[CInt(userAgeText) >= 18]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,476.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "If_1"
+    },
+    "robin_script": "IF userAgeText >= 18 THEN\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nELSE\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nEND"
+  },
+  {
+    "id": "AgeChecker_Main.xaml_full_workflow",
+    "bot_name": "AgeChecker",
+    "workflow_file": "Main.xaml",
+    "activity_type": "FullWorkflow",
+    "display_name": "Main",
+    "properties": {
+      "filename": "Main.xaml",
+      "variables_count": 1
+    },
+    "robin_script": "# --- Initialize Variables ---\nSET userAgeText TO $''''''\n\nDisplay.InputDialog.Show Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed\nIF userAgeText >= 18 THEN\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nELSE\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nEND"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_2",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_1",
+      "To": "[responseString]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET responseString TO $''''''"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_3",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_2",
+      "To": "[jsonObj]",
+      "Value": "[new JObject()]"
+    },
+    "robin_script": "SET jsonObj TO %new JObject()%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_4",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_3",
+      "To": "[jsonArray]",
+      "Value": "[New JArray()]"
+    },
+    "robin_script": "SET jsonArray TO %New JArray()%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_5",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_4",
+      "To": "[postId]",
+      "Value": "1"
+    },
+    "robin_script": "SET postId TO 1"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_6",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "HttpClient",
+    "display_name": "HTTP Request (legacy)",
+    "properties": {
+      "Body": "{x:Null}",
+      "ClientCertificate": "{x:Null}",
+      "ClientCertificatePassword": "{x:Null}",
+      "ConsumerKey": "{x:Null}",
+      "ConsumerSecret": "{x:Null}",
+      "ContinueOnError": "{x:Null}",
+      "FileAttachments": "{x:Null}",
+      "OAuth1Token": "{x:Null}",
+      "OAuth1TokenSecret": "{x:Null}",
+      "OAuth2Token": "{x:Null}",
+      "Password": "{x:Null}",
+      "ResourcePath": "{x:Null}",
+      "ResponseAttachment": "{x:Null}",
+      "ResponseHeaders": "{x:Null}",
+      "SecureClientCertificatePassword": "{x:Null}",
+      "SecurePassword": "{x:Null}",
+      "Username": "{x:Null}",
+      "AcceptFormat": "ANY",
+      "AuthenticationType": "None",
+      "BodyFormat": "application/xml",
+      "DisplayName": "HTTP Request (legacy)",
+      "EnableSSLVerification": "True",
+      "EndPoint": "https://jsonplaceholder.typicode.com/posts",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,103.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "HttpClient_1",
+      "Method": "GET",
+      "Result": "[responseString]",
+      "StatusCode": "[responseStatus]",
+      "TimeoutMS": "6000"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_7",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "DeserializeJsonArray",
+    "display_name": "Deserialize JSON Array",
+    "properties": {
+      "DisplayName": "Deserialize JSON Array",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,92",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "DeserializeJsonArray_1",
+      "JsonArray": "[jsonArray]",
+      "JsonString": "[responseString]"
+    },
+    "robin_script": "Variables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonArray"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_8",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_5",
+      "To": "[count]",
+      "Value": "[jsonArray.Count]"
+    },
+    "robin_script": "SET count TO %jsonArray.Count%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_9",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_1",
+      "Text": "[\"Total Posts: \" + count.ToString]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Total Posts: %count%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_10",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "InputDialog",
+    "display_name": "Input Dialog",
+    "properties": {
+      "Options": "{x:Null}",
+      "OptionsString": "{x:Null}",
+      "DisplayName": "Input Dialog",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,273.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "InputDialog_1",
+      "IsPassword": "False",
+      "Label": "Enter the post id",
+      "Title": "Get Single Post Details",
+      "TopMost": "False",
+      "Result": "[postId]"
+    },
+    "robin_script": "Display.InputDialog.Show Title: $'''Get Single Post Details''' Message: $'''Enter the post id''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> postId ButtonPressed=> ButtonPressed"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_11",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "HttpClient",
+    "display_name": "HTTP Request (legacy)",
+    "properties": {
+      "Body": "{x:Null}",
+      "ClientCertificate": "{x:Null}",
+      "ClientCertificatePassword": "{x:Null}",
+      "ConsumerKey": "{x:Null}",
+      "ConsumerSecret": "{x:Null}",
+      "ContinueOnError": "{x:Null}",
+      "FileAttachments": "{x:Null}",
+      "OAuth1Token": "{x:Null}",
+      "OAuth1TokenSecret": "{x:Null}",
+      "OAuth2Token": "{x:Null}",
+      "Password": "{x:Null}",
+      "ResourcePath": "{x:Null}",
+      "ResponseAttachment": "{x:Null}",
+      "ResponseHeaders": "{x:Null}",
+      "SecureClientCertificatePassword": "{x:Null}",
+      "SecurePassword": "{x:Null}",
+      "Username": "{x:Null}",
+      "AcceptFormat": "ANY",
+      "AuthenticationType": "None",
+      "BodyFormat": "application/xml",
+      "DisplayName": "HTTP Request (legacy)",
+      "EnableSSLVerification": "True",
+      "EndPoint": "[\"https://jsonplaceholder.typicode.com/posts/\" + postId.ToString]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,103.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "HttpClient_2",
+      "Method": "GET",
+      "Result": "[responseString]",
+      "StatusCode": "[responseStatus]",
+      "TimeoutMS": "6000"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts/%postId%''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_12",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "DeserializeJson",
+    "display_name": "Deserialize JSON",
+    "properties": {
+      "{http://schemas.microsoft.com/winfx/2006/xaml}TypeArguments": "njl:JObject",
+      "JsonSample": "{x:Null}",
+      "Settings": "{x:Null}",
+      "DisplayName": "Deserialize JSON",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,173.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "DeserializeJson`1_2",
+      "JsonObject": "[jsonObj]",
+      "JsonString": "[responseString]"
+    },
+    "robin_script": "Variables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonObj"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_13",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_2",
+      "Text": "[\"Title :\"+jsonObj(\"title\").ToString + vbCrLf + \"Body :\" + jsonObj(\"body\").ToString]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title :%jsonObj['title']%\nBody :%jsonObj['body']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_14",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ShowFormActivity",
+    "display_name": "Show Form",
+    "properties": {
+      "Height": "{x:Null}",
+      "InstanceName": "{x:Null}",
+      "Left": "{x:Null}",
+      "ShowInTaskbar": "{x:Null}",
+      "ShowMargin": "{x:Null}",
+      "Title": "{x:Null}",
+      "Top": "{x:Null}",
+      "TopMost": "{x:Null}",
+      "Width": "{x:Null}",
+      "DisplayName": "Show Form",
+      "FormId": "23b2321f-db76-4465-b1c4-d7194ee1cada",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,219.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ShowFormActivity_1",
+      "IsAsync": "False",
+      "WindowState": "[UiPath.Studio.Forms.Runtime.WindowState.Normal]",
+      "Arguments": "[newPostTitle]\n        [newPostDesc]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Show Form''' Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_15",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_6",
+      "To": "[requestBody]",
+      "Value": "[\"{\"\"title\"\":\"\"\" & newPostTitle & \"\"\",\"\"body\"\":\"\"\" & newPostDesc & \"\"\",\"\"userId\"\":1}\"]"
+    },
+    "robin_script": "SET requestBody TO $'''{\"title\":\"%newPostTitle%\",\"body\":\"%newPostDesc%\",\"userId\":1}'''"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_16",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "HttpClient",
+    "display_name": "HTTP Request (legacy)",
+    "properties": {
+      "ClientCertificate": "{x:Null}",
+      "ClientCertificatePassword": "{x:Null}",
+      "ConsumerKey": "{x:Null}",
+      "ConsumerSecret": "{x:Null}",
+      "ContinueOnError": "{x:Null}",
+      "FileAttachments": "{x:Null}",
+      "OAuth1Token": "{x:Null}",
+      "OAuth1TokenSecret": "{x:Null}",
+      "OAuth2Token": "{x:Null}",
+      "Password": "{x:Null}",
+      "ResourcePath": "{x:Null}",
+      "ResponseAttachment": "{x:Null}",
+      "ResponseHeaders": "{x:Null}",
+      "SecureClientCertificatePassword": "{x:Null}",
+      "SecurePassword": "{x:Null}",
+      "Username": "{x:Null}",
+      "AcceptFormat": "JSON",
+      "AuthenticationType": "None",
+      "Body": "[requestBody]",
+      "BodyFormat": "application/json",
+      "DisplayName": "HTTP Request (legacy)",
+      "EnableSSLVerification": "True",
+      "EndPoint": "https://jsonplaceholder.typicode.com/posts",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,103.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "HttpClient_3",
+      "Method": "POST",
+      "Result": "[responseString]",
+      "StatusCode": "[responseStatus]",
+      "TimeoutMS": "6000"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Post Url: $'''https://jsonplaceholder.typicode.com/posts''' Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: %requestBody% ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_17",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_3",
+      "Text": "[\"Created new Post response : \" + responseString]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Created new Post response : %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_18",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_7",
+      "To": "[requestBody]",
+      "Value": "[\"{\"\"id\"\":1,\n\"\"title\"\":\"\"Updated Title\"\",\n\"\"body\"\":\"\"Updated Body\"\",\n\"\"userId\"\":1}\"]"
+    },
+    "robin_script": "SET requestBody TO %\"{\"\"id\"\":1,\n\"\"title\"\":\"\"Updated Title\"\",\n\"\"body\"\":\"\"Updated Body\"\",\n\"\"userId\"\":1}\"%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_19",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ShowFormActivity",
+    "display_name": "Show Form",
+    "properties": {
+      "Height": "{x:Null}",
+      "InstanceName": "{x:Null}",
+      "Left": "{x:Null}",
+      "ShowInTaskbar": "{x:Null}",
+      "ShowMargin": "{x:Null}",
+      "Title": "{x:Null}",
+      "Top": "{x:Null}",
+      "TopMost": "{x:Null}",
+      "Width": "{x:Null}",
+      "WindowState": "{x:Null}",
+      "DisplayName": "Show Form",
+      "FormId": "ad257a26-6c7c-4644-986e-afbca96ec824",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,219.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ShowFormActivity_2",
+      "IsAsync": "False",
+      "Arguments": "[newPostTitle]\n        [newPostDesc]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Show Form''' Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_20",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_8",
+      "To": "[requestBody]",
+      "Value": "[\"{\"\"title\"\":\"\"\" & newPostTitle & \"\"\",\"\"body\"\":\"\"\" & newPostDesc & \"\"\",\"\"id\"\":1,\"\"userId\"\":1}\"]"
+    },
+    "robin_script": "SET requestBody TO $'''{\"title\":\"%newPostTitle%\",\"body\":\"%newPostDesc%\",\"id\":1,\"userId\":1}'''"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_21",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "HttpClient",
+    "display_name": "HTTP Request (legacy)",
+    "properties": {
+      "ClientCertificate": "{x:Null}",
+      "ClientCertificatePassword": "{x:Null}",
+      "ConsumerKey": "{x:Null}",
+      "ConsumerSecret": "{x:Null}",
+      "ContinueOnError": "{x:Null}",
+      "FileAttachments": "{x:Null}",
+      "OAuth1Token": "{x:Null}",
+      "OAuth1TokenSecret": "{x:Null}",
+      "OAuth2Token": "{x:Null}",
+      "Password": "{x:Null}",
+      "ResourcePath": "{x:Null}",
+      "ResponseAttachment": "{x:Null}",
+      "ResponseHeaders": "{x:Null}",
+      "SecureClientCertificatePassword": "{x:Null}",
+      "SecurePassword": "{x:Null}",
+      "Username": "{x:Null}",
+      "AcceptFormat": "ANY",
+      "AuthenticationType": "None",
+      "Body": "[requestBody]",
+      "BodyFormat": "application/json",
+      "DisplayName": "HTTP Request (legacy)",
+      "EnableSSLVerification": "True",
+      "EndPoint": "https://jsonplaceholder.typicode.com/posts/1",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,103.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "HttpClient_4",
+      "Method": "GET",
+      "Result": "[responseString]",
+      "StatusCode": "[responseStatus]",
+      "TimeoutMS": "6000"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts/1''' Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: %requestBody% ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_22",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_4",
+      "Text": "[\"Update Post details API response: \"+ responseString]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Update Post details API response: %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_23",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "InputDialog",
+    "display_name": "Input Dialog",
+    "properties": {
+      "Options": "{x:Null}",
+      "OptionsString": "{x:Null}",
+      "DisplayName": "Input Dialog",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,273.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "InputDialog_2",
+      "IsPassword": "False",
+      "Label": "Enter Post Id to delete",
+      "Title": "Delete Post",
+      "TopMost": "False",
+      "Result": "[delPostId]"
+    },
+    "robin_script": "Display.InputDialog.Show Title: $'''Delete Post''' Message: $'''Enter Post Id to delete''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> delPostId ButtonPressed=> ButtonPressed"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_24",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "NetHttpRequest",
+    "display_name": "HTTP Request",
+    "properties": {
+      "BasicAuthPassword": "{x:Null}",
+      "BasicAuthSecurePassword": "{x:Null}",
+      "BasicAuthUsername": "{x:Null}",
+      "BinaryPayload": "{x:Null}",
+      "ClientCertPassword": "{x:Null}",
+      "ClientCertPath": "{x:Null}",
+      "ClientCertSecurePassword": "{x:Null}",
+      "Cookies": "{x:Null}",
+      "CustomNegotiatedAuthCredentials": "{x:Null}",
+      "FilePath": "{x:Null}",
+      "FormData": "{x:Null}",
+      "Headers": "{x:Null}",
+      "LocalFiles": "{x:Null}",
+      "OAuthToken": "{x:Null}",
+      "OutputFileName": "{x:Null}",
+      "OutputFileTargetFolder": "{x:Null}",
+      "Parameters": "{x:Null}",
+      "PathResource": "{x:Null}",
+      "ProxyConfiguration": "{x:Null}",
+      "ResourceFiles": "{x:Null}",
+      "TextPayload": "{x:Null}",
+      "AuthenticationType": "None",
+      "ContinueOnError": "True",
+      "DisableSslVerification": "False",
+      "DisplayName": "HTTP Request",
+      "EnableCookies": "True",
+      "FileOverwrite": "AutoRename",
+      "FollowRedirects": "True",
+      "FormDataParts": "[New List (Of FormDataPart) From _\n{\n\tNew FileFormDataPart(),\n\tNew BinaryFormDataPart(),\n\tNew TextFormDataPart()\n}]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,276.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "NetHttpRequest_5",
+      "InitialDelay": "500",
+      "MaxRedirects": "3",
+      "MaxRetryAfterDelay": "30000",
+      "Method": "DELETE",
+      "Multiplier": "2",
+      "PreferRetryAfterValue": "True",
+      "RequestBodyType": "None",
+      "RequestUrl": "[\"https://jsonplaceholder.typicode.com/posts/\" + delPostId]",
+      "RetryCount": "3",
+      "RetryStatusCodes": "[New List (Of System.Net.HttpStatusCode) From _\n{\n\tSystem.Net.HttpStatusCode.RequestTimeout,\n\tSystem.Net.HttpStatusCode.TooManyRequests,\n\tSystem.Net.HttpStatusCode.InternalServerError,\n\tSystem.Net.HttpStatusCode.BadGateway,\n\tSystem.Net.HttpStatusCode.ServiceUnavailable,\n\tSystem.Net.HttpStatusCode.GatewayTimeout\n}]",
+      "SaveRawRequestResponse": "False",
+      "SaveResponseAsFile": "False",
+      "TextPayloadContentType": "application/json",
+      "TextPayloadEncoding": "UTF-8",
+      "TlsProtocol": "Automatic",
+      "UseJitter": "True",
+      "UseOsNegotiatedAuthCredentials": "True"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Delete Url: $'''https://api.example.com''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_25",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_5",
+      "Text": "[\"Post wit id: \"+delPostId +\"  has been deleted!\"]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Post wit id: %delPostId%  has been deleted!''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_26",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_9",
+      "Text": "[\"Calling Updated Post list for User 1\"]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Calling Updated Post list for User 1''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_27",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "HttpClient",
+    "display_name": "HTTP Request (legacy)",
+    "properties": {
+      "Body": "{x:Null}",
+      "ClientCertificate": "{x:Null}",
+      "ClientCertificatePassword": "{x:Null}",
+      "ConsumerKey": "{x:Null}",
+      "ConsumerSecret": "{x:Null}",
+      "ContinueOnError": "{x:Null}",
+      "FileAttachments": "{x:Null}",
+      "OAuth1Token": "{x:Null}",
+      "OAuth1TokenSecret": "{x:Null}",
+      "OAuth2Token": "{x:Null}",
+      "Password": "{x:Null}",
+      "ResourcePath": "{x:Null}",
+      "ResponseAttachment": "{x:Null}",
+      "ResponseHeaders": "{x:Null}",
+      "SecureClientCertificatePassword": "{x:Null}",
+      "SecurePassword": "{x:Null}",
+      "Username": "{x:Null}",
+      "AcceptFormat": "ANY",
+      "AuthenticationType": "None",
+      "BodyFormat": "application/xml",
+      "DisplayName": "HTTP Request (legacy)",
+      "EnableSSLVerification": "True",
+      "EndPoint": "https://jsonplaceholder.typicode.com/posts?userId=1",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,103.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "HttpClient_5",
+      "Method": "GET",
+      "Result": "[responseString]",
+      "StatusCode": "[responseStatus]",
+      "TimeoutMS": "6000"
+    },
+    "robin_script": "Web.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts?userId=1''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_28",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "DeserializeJsonArray",
+    "display_name": "Deserialize JSON Array",
+    "properties": {
+      "DisplayName": "Deserialize JSON Array",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,92",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "DeserializeJsonArray_2",
+      "JsonArray": "[jsonArray]",
+      "JsonString": "[responseString]"
+    },
+    "robin_script": "Variables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonArray"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_31",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,113.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_6",
+      "Text": "[\"Title: \" + currentJToken(\"title\").ToString +vbCrLf + \"Desc :\" + currentJToken(\"body\").ToString  + vbCrLf + \"Id: \" + currentJToken(\"id\").ToString]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title: %CurrentItem['title']%\nDesc :%CurrentItem['body']%\nId: %CurrentItem['id']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_29",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ForEach",
+    "display_name": "For Each currentJToken",
+    "properties": {
+      "{http://schemas.microsoft.com/winfx/2006/xaml}TypeArguments": "njl:JToken",
+      "CurrentIndex": "{x:Null}",
+      "DisplayName": "For Each currentJToken",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,304",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ForEach`1_2",
+      "Values": "[jsonArray]"
+    },
+    "robin_script": "LOOP FOREACH CurrentItem IN %jsonArray%\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title: %CurrentItem['title']%\n    Desc :%CurrentItem['body']%\n    Id: %CurrentItem['id']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nEND"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_32",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "BuildDataTable",
+    "display_name": "Build Data Table",
+    "properties": {
+      "DataTable": "[dtPosts]",
+      "DisplayName": "Build Data Table",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,92",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "BuildDataTable_1",
+      "TableInfo": "<NewDataSet>\n  <xs:schema id=\"NewDataSet\" xmlns=\"\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:msdata=\"urn:schemas-microsoft-com:xml-msdata\">\n    <xs:element name=\"NewDataSet\" msdata:IsDataSet=\"true\" msdata:MainDataTable=\"TableName\" msdata:UseCurrentLocale=\"true\">\n      <xs:complexType>\n        <xs:choice minOccurs=\"0\" maxOccurs=\"unbounded\">\n          <xs:element name=\"TableName\">\n            <xs:complexType>\n              <xs:sequence>\n                <xs:element name=\"UserId\" msdata:Caption=\"\" minOccurs=\"0\">\n                  <xs:simpleType>\n                    <xs:restriction base=\"xs:string\">\n                      <xs:maxLength value=\"100\" />\n                    </xs:restriction>\n                  </xs:simpleType>\n                </xs:element>\n                <xs:element name=\"PostId\" msdata:Caption=\"\" type=\"xs:string\" minOccurs=\"0\" />\n                <xs:element name=\"Title\" msdata:Caption=\"\" type=\"xs:string\" minOccurs=\"0\" />\n                <xs:element name=\"Body\" msdata:Caption=\"\" type=\"xs:string\" minOccurs=\"0\" />\n              </xs:sequence>\n            </xs:complexType>\n          </xs:element>\n        </xs:choice>\n      </xs:complexType>\n    </xs:element>\n  </xs:schema>\n  <TableName>\n    <UserId />\n  </TableName>\n</NewDataSet>"
+    },
+    "robin_script": "Variables.CreateNewDatatable Columns: 4 Rows: 0 DataTable=> dtPosts"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_35",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "AddDataRow",
+    "display_name": "Add Data Row",
+    "properties": {
+      "DataRow": "{x:Null}",
+      "ArrayRow": "[{\r\ncurrentJToken(\"userId\").ToString,\r\ncurrentJToken(\"id\").ToString,\r\ncurrentJToken(\"title\").ToString,\r\ncurrentJToken(\"body\").ToString\r\n}]",
+      "DataTable": "[dtPosts]",
+      "DisplayName": "Add Data Row",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,211.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "AddDataRow_1"
+    },
+    "robin_script": "Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToInsert: %{\r\ncurrentJToken(\"userId\").ToString,\r\ncurrentJToken(\"id\").ToString,\r\ncurrentJToken(\"title\").ToString,\r\ncurrentJToken(\"body\").ToString\r\n}%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_33",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ForEach",
+    "display_name": "For Each currentJToken",
+    "properties": {
+      "{http://schemas.microsoft.com/winfx/2006/xaml}TypeArguments": "njl:JToken",
+      "CurrentIndex": "{x:Null}",
+      "DisplayName": "For Each currentJToken",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,401.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ForEach`1_3",
+      "Values": "[jsonArray]"
+    },
+    "robin_script": "LOOP FOREACH CurrentItem IN %jsonArray%\n    Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToInsert: %{\r\n    currentJToken(\"userId\").ToString,\r\n    currentJToken(\"id\").ToString,\r\n    currentJToken(\"title\").ToString,\r\n    currentJToken(\"body\").ToString\r\n    }%\nEND"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_36",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_9",
+      "To": "[excelPath]",
+      "Value": "[Path.Combine(\nEnvironment.CurrentDirectory,\n\"User_1_all_posts.xlsx\")]"
+    },
+    "robin_script": "SET excelPath TO %Path.Combine(\nEnvironment.CurrentDirectory,\n\"User_1_all_posts.xlsx\")%"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_41",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "WriteRangeX",
+    "display_name": "Write DataTable to Excel",
+    "properties": {
+      "Destination": "[Excel.Sheet(\"Sheet1\").Range(\"A1\")]",
+      "DisplayName": "Write DataTable to Excel",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,212",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "WriteRangeX_2",
+      "IgnoreEmptySource": "False",
+      "Source": "[dtPosts]"
+    },
+    "robin_script": "Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtPosts% Column: 1 Row: 1"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_act_39",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ExcelApplicationCard",
+    "display_name": "Use Excel File",
+    "properties": {
+      "DisplayName": "Use Excel File",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,491.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ExcelApplicationCard_1",
+      "ResizeWindow": "None",
+      "WorkbookPath": "[excelPath]"
+    },
+    "robin_script": "Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: %excelPath% Visible: True ReadOnly: False Instance=> ExcelInstance\nExcel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtPosts% Column: 1 Row: 1\nExcel.CloseExcel.Close Instance: ExcelInstance"
+  },
+  {
+    "id": "CrudOperation_Main.xaml_full_workflow",
+    "bot_name": "CrudOperation",
+    "workflow_file": "Main.xaml",
+    "activity_type": "FullWorkflow",
+    "display_name": "Main",
+    "properties": {
+      "filename": "Main.xaml",
+      "variables_count": 14
+    },
+    "robin_script": "# --- Initialize Variables ---\nSET responseString TO $''''''\nSET jsonObj TO $''''''\nSET jsonArray TO $''''''\nSET postId TO $''''''\nSET count TO $''''''\nSET requestBody TO $''''''\nSET httpResponse TO $''''''\nSET httpResponseBody TO $''''''\nSET responseStatus TO $''''''\nSET newPostTitle TO $''''''\nSET newPostDesc TO $''''''\nSET delPostId TO $''''''\nSET dtPosts TO $''''''\nSET excelPath TO $''''''\n\nSET responseString TO $''''''\nSET jsonObj TO %new JObject()%\nSET jsonArray TO %New JArray()%\nSET postId TO 1\nWeb.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nVariables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonArray\nSET count TO %jsonArray.Count%\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Total Posts: %count%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nDisplay.InputDialog.Show Title: $'''Get Single Post Details''' Message: $'''Enter the post id''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> postId ButtonPressed=> ButtonPressed\nWeb.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts/%postId%''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nVariables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonObj\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title :%jsonObj['title']%\nBody :%jsonObj['body']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Show Form''' Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nSET requestBody TO $'''{\"title\":\"%newPostTitle%\",\"body\":\"%newPostDesc%\",\"userId\":1}'''\nWeb.InvokeWebService.Invoke Method: Web.Method.Post Url: $'''https://jsonplaceholder.typicode.com/posts''' Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: %requestBody% ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Created new Post response : %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nSET requestBody TO %\"{\"\"id\"\":1,\n\"\"title\"\":\"\"Updated Title\"\",\n\"\"body\"\":\"\"Updated Body\"\",\n\"\"userId\"\":1}\"%\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Show Form''' Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nSET requestBody TO $'''{\"title\":\"%newPostTitle%\",\"body\":\"%newPostDesc%\",\"id\":1,\"userId\":1}'''\nWeb.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts/1''' Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: %requestBody% ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Update Post details API response: %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nDisplay.InputDialog.Show Title: $'''Delete Post''' Message: $'''Enter Post Id to delete''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> delPostId ButtonPressed=> ButtonPressed\nWeb.InvokeWebService.Invoke Method: Web.Method.Delete Url: $'''https://api.example.com''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Post wit id: %delPostId%  has been deleted!''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nDisplay.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Calling Updated Post list for User 1''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nWeb.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''https://jsonplaceholder.typicode.com/posts?userId=1''' Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False StatusCode=> responseStatus ResponseHeaders=> ResponseHeaders Response=> responseString\nVariables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonArray\nLOOP FOREACH CurrentItem IN %jsonArray%\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title: %CurrentItem['title']%\n    Desc :%CurrentItem['body']%\n    Id: %CurrentItem['id']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nEND\nVariables.CreateNewDatatable Columns: 4 Rows: 0 DataTable=> dtPosts\nLOOP FOREACH CurrentItem IN %jsonArray%\n    Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToInsert: %{\r\n    currentJToken(\"userId\").ToString,\r\n    currentJToken(\"id\").ToString,\r\n    currentJToken(\"title\").ToString,\r\n    currentJToken(\"body\").ToString\r\n    }%\nEND\nSET excelPath TO %Path.Combine(\nEnvironment.CurrentDirectory,\n\"User_1_all_posts.xlsx\")%\nExcel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: %excelPath% Visible: True ReadOnly: False Instance=> ExcelInstance\nExcel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtPosts% Column: 1 Row: 1\nExcel.CloseExcel.Close Instance: ExcelInstance"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_2",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_1",
+      "To": "[dtEmployees]",
+      "Value": "[New System.Data.DataTable()]"
+    },
+    "robin_script": "SET dtEmployees TO %New System.Data.DataTable()%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_3",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_4",
+      "To": "[employeeName]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET employeeName TO $''''''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_4",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_5",
+      "To": "[employeeEmail]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET employeeEmail TO $''''''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_5",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_6",
+      "To": "[department]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET department TO $''''''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_6",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_7",
+      "To": "[employeeFolder]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET employeeFolder TO $''''''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_7",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_8",
+      "To": "[employeeId]",
+      "Value": "[\"\"]"
+    },
+    "robin_script": "SET employeeId TO $''''''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_12",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ReadRangeX",
+    "display_name": "Read Range",
+    "properties": {
+      "DisplayName": "Read Range",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,168.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ReadRangeX_2",
+      "Range": "[Excel.Table(\"Table1\")]",
+      "ReadFormatting": "Default",
+      "SaveTo": "[dtEmployees]"
+    },
+    "robin_script": "Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance FirstRowIsHeader: True RangeValue=> dtEmployees"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_15",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_20",
+      "To": "[rowStatus]",
+      "Value": "[currentRow(\"Status\").ToString]"
+    },
+    "robin_script": "SET rowStatus TO %currentRow['Status']%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_16",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_21",
+      "To": "[employeeName]",
+      "Value": "[currentRow(\"Name\").ToString]"
+    },
+    "robin_script": "SET employeeName TO %currentRow['Name']%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_17",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_22",
+      "To": "[employeeEmail]",
+      "Value": "[currentRow(\"Email\").ToString]"
+    },
+    "robin_script": "SET employeeEmail TO %currentRow['Email']%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_18",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_23",
+      "To": "[department]",
+      "Value": "[currentRow(\"Department\").ToString]"
+    },
+    "robin_script": "SET department TO %currentRow['Department']%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_19",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_24",
+      "To": "[employeeId]",
+      "Value": "[currentRow(\"EmployeeID\").ToString]"
+    },
+    "robin_script": "SET employeeId TO %currentRow['EmployeeID']%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_22",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "MessageBox",
+    "display_name": "Message Box",
+    "properties": {
+      "Caption": "{x:Null}",
+      "ChosenButton": "{x:Null}",
+      "AutoCloseAfter": "00:00:00",
+      "DisplayName": "Message Box",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,113.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "MessageBox_2",
+      "Text": "[\"Email missing for \" + employeeName]"
+    },
+    "robin_script": "Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Email missing for %employeeName%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_26",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "LogMessage",
+    "display_name": "Log Message",
+    "properties": {
+      "DisplayName": "Log Message",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "LogMessage_14",
+      "Level": "Warn",
+      "Message": "[\"Row is already processed, skipping it\"]"
+    },
+    "robin_script": "# [Log - Warn] $'''Row is already processed, skipping it'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_28",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,174.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_25",
+      "To": "[employeeFolder]",
+      "Value": "[\"Employees\\\" + employeeId + \"_\" + employeeName]"
+    },
+    "robin_script": "SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_29",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "CreateDirectory",
+    "display_name": "Create Folder",
+    "properties": {
+      "ContinueOnError": "{x:Null}",
+      "Output": "{x:Null}",
+      "DisplayName": "Create Folder",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,122.4",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "CreateDirectory_4",
+      "Path": "[employeeFolder]"
+    },
+    "robin_script": "Folder.Create FolderPath: %employeeFolder%"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_30",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "WriteTextFile",
+    "display_name": "Write Text File",
+    "properties": {
+      "File": "{x:Null}",
+      "Output": "{x:Null}",
+      "ContinueOnError": "False",
+      "DisplayName": "Write Text File",
+      "FileName": "[employeeFolder + \"\\WelcomeLetter.txt\"]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,175.2",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "WriteTextFile_4",
+      "Text": "[\"Welcome \" + employeeName +\nEnvironment.NewLine +\n\"Department: \" + department]"
+    },
+    "robin_script": "File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\nDepartment: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_33",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "LogMessage",
+    "display_name": "Log Message",
+    "properties": {
+      "DisplayName": "Log Message",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "LogMessage_18",
+      "Level": "Error",
+      "Message": "[\"Un-detected Department\"]"
+    },
+    "robin_script": "# [Log - Error] $'''Un-detected Department'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_35",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "LogMessage",
+    "display_name": "Log Message",
+    "properties": {
+      "DisplayName": "Log Message",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "LogMessage_15",
+      "Level": "Info",
+      "Message": "[\"Assigning laptop\"]"
+    },
+    "robin_script": "# [Log - Info] $'''Assigning laptop'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_37",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "LogMessage",
+    "display_name": "Log Message",
+    "properties": {
+      "DisplayName": "Log Message",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "LogMessage_16",
+      "Level": "Info",
+      "Message": "[\"Assigning HR access\"]"
+    },
+    "robin_script": "# [Log - Info] $'''Assigning HR access'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_39",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "LogMessage",
+    "display_name": "Log Message",
+    "properties": {
+      "DisplayName": "Log Message",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "LogMessage_17",
+      "Level": "Info",
+      "Message": "[\"Assigning Finance systems\"]"
+    },
+    "robin_script": "# [Log - Info] $'''Assigning Finance systems'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_31",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Switch",
+    "display_name": "Switch",
+    "properties": {
+      "{http://schemas.microsoft.com/winfx/2006/xaml}TypeArguments": "x:String",
+      "DisplayName": "Switch",
+      "Expression": "[department]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,1100",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Switch`1_4"
+    },
+    "robin_script": "SWITCH %department%\n    DEFAULT\n        # [Log - Error] $'''Un-detected Department'''\n    CASE $'''IT'''\n        # [Log - Info] $'''Assigning laptop'''\n    CASE $'''HR'''\n        # [Log - Info] $'''Assigning HR access'''\n    CASE $'''Finance'''\n        # [Log - Info] $'''Assigning Finance systems'''\nEND SWITCH"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_40",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "Assign",
+    "display_name": "Assign",
+    "properties": {
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,165.6",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "Assign_26",
+      "To": "[CurrentRow(\"Status\")]",
+      "Value": "[\"Completed\"]"
+    },
+    "robin_script": "SET CurrentRow['Status'] TO $'''Completed'''"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_24",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "If",
+    "display_name": "If",
+    "properties": {
+      "Condition": "[rowStatus.ToString.Trim.Equals(\"Completed\", StringComparison.OrdinalIgnoreCase)]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "486.4,2152.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "If_4"
+    },
+    "robin_script": "IF rowStatus = $'''Completed''' THEN\n    # [Log - Warn] $'''Row is already processed, skipping it'''\nELSE\n    SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''\n    Folder.Create FolderPath: %employeeFolder%\n    File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\n    Department: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8\n    SWITCH %department%\n        DEFAULT\n            # [Log - Error] $'''Un-detected Department'''\n        CASE $'''IT'''\n            # [Log - Info] $'''Assigning laptop'''\n        CASE $'''HR'''\n            # [Log - Info] $'''Assigning HR access'''\n        CASE $'''Finance'''\n            # [Log - Info] $'''Assigning Finance systems'''\n    END SWITCH\n    SET CurrentRow['Status'] TO $'''Completed'''\nEND"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_20",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "If",
+    "display_name": "If",
+    "properties": {
+      "Condition": "[String.IsNullOrEmpty(employeeEmail)]",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "521.6,2516",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "If_3"
+    },
+    "robin_script": "IF employeeEmail = $'''''' THEN\n    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Email missing for %employeeName%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\nELSE\n    IF rowStatus = $'''Completed''' THEN\n        # [Log - Warn] $'''Row is already processed, skipping it'''\n    ELSE\n        SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''\n        Folder.Create FolderPath: %employeeFolder%\n        File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\n        Department: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8\n        SWITCH %department%\n            DEFAULT\n                # [Log - Error] $'''Un-detected Department'''\n            CASE $'''IT'''\n                # [Log - Info] $'''Assigning laptop'''\n            CASE $'''HR'''\n                # [Log - Info] $'''Assigning HR access'''\n            CASE $'''Finance'''\n                # [Log - Info] $'''Assigning Finance systems'''\n        END SWITCH\n        SET CurrentRow['Status'] TO $'''Completed'''\n    END\nEND"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_13",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ForEachRow",
+    "display_name": "For Each Row in Data Table",
+    "properties": {
+      "ColumnNames": "{x:Null}",
+      "CurrentIndex": "{x:Null}",
+      "DataTable": "[dtEmployees]",
+      "DisplayName": "For Each Row in Data Table",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,56.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ForEachRow_2"
+    },
+    "robin_script": "LOOP FOREACH CurrentRow IN %dtEmployees%\n    SET rowStatus TO %currentRow['Status']%\n    SET employeeName TO %currentRow['Name']%\n    SET employeeEmail TO %currentRow['Email']%\n    SET department TO %currentRow['Department']%\n    SET employeeId TO %currentRow['EmployeeID']%\n    IF employeeEmail = $'''''' THEN\n        Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Email missing for %employeeName%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\n    ELSE\n        IF rowStatus = $'''Completed''' THEN\n            # [Log - Warn] $'''Row is already processed, skipping it'''\n        ELSE\n            SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''\n            Folder.Create FolderPath: %employeeFolder%\n            File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\n            Department: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8\n            SWITCH %department%\n                DEFAULT\n                    # [Log - Error] $'''Un-detected Department'''\n                CASE $'''IT'''\n                    # [Log - Info] $'''Assigning laptop'''\n                CASE $'''HR'''\n                    # [Log - Info] $'''Assigning HR access'''\n                CASE $'''Finance'''\n                    # [Log - Info] $'''Assigning Finance systems'''\n            END SWITCH\n            SET CurrentRow['Status'] TO $'''Completed'''\n        END\n    END\nEND"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_41",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "WriteRangeX",
+    "display_name": "Write DataTable to Excel",
+    "properties": {
+      "Destination": "[Excel.Table(\"Table1\")]",
+      "DisplayName": "Write DataTable to Excel",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "416,212",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "WriteRangeX_1",
+      "IgnoreEmptySource": "False",
+      "Source": "[dtEmployees]"
+    },
+    "robin_script": "Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtEmployees% Column: 1 Row: 1"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_act_10",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "ExcelApplicationCard",
+    "display_name": "Use Excel File",
+    "properties": {
+      "DisplayName": "Use Excel File",
+      "{http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation}VirtualizedContainerService.HintSize": "451.2,716.8",
+      "{http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation}WorkflowViewState.IdRef": "ExcelApplicationCard_2",
+      "ResizeWindow": "None",
+      "WorkbookPath": "Employees.xlsx"
+    },
+    "robin_script": "Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: $'''Employees.xlsx''' Visible: True ReadOnly: False Instance=> ExcelInstance\nExcel.ReadFromExcel.ReadAllCells Instance: ExcelInstance FirstRowIsHeader: True RangeValue=> dtEmployees\nLOOP FOREACH CurrentRow IN %dtEmployees%\n    SET rowStatus TO %currentRow['Status']%\n    SET employeeName TO %currentRow['Name']%\n    SET employeeEmail TO %currentRow['Email']%\n    SET department TO %currentRow['Department']%\n    SET employeeId TO %currentRow['EmployeeID']%\n    IF employeeEmail = $'''''' THEN\n        Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Email missing for %employeeName%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\n    ELSE\n        IF rowStatus = $'''Completed''' THEN\n            # [Log - Warn] $'''Row is already processed, skipping it'''\n        ELSE\n            SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''\n            Folder.Create FolderPath: %employeeFolder%\n            File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\n            Department: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8\n            SWITCH %department%\n                DEFAULT\n                    # [Log - Error] $'''Un-detected Department'''\n                CASE $'''IT'''\n                    # [Log - Info] $'''Assigning laptop'''\n                CASE $'''HR'''\n                    # [Log - Info] $'''Assigning HR access'''\n                CASE $'''Finance'''\n                    # [Log - Info] $'''Assigning Finance systems'''\n            END SWITCH\n            SET CurrentRow['Status'] TO $'''Completed'''\n        END\n    END\nEND\nExcel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtEmployees% Column: 1 Row: 1\nExcel.CloseExcel.Close Instance: ExcelInstance"
+  },
+  {
+    "id": "EmployeeOnboardingBot_Main.xaml_full_workflow",
+    "bot_name": "EmployeeOnboardingBot",
+    "workflow_file": "Main.xaml",
+    "activity_type": "FullWorkflow",
+    "display_name": "Main",
+    "properties": {
+      "filename": "Main.xaml",
+      "variables_count": 10
+    },
+    "robin_script": "# --- Initialize Variables ---\nSET dtEmployees TO $''''''\nSET currentRow TO $''''''\nSET employeeName TO $''''''\nSET employeeEmail TO $''''''\nSET department TO $''''''\nSET employeeFolder TO $''''''\nSET employeeId TO $''''''\nSET excelRange TO $''''''\nSET status TO $''''''\nSET rowStatus TO $''''''\n\nSET dtEmployees TO %New System.Data.DataTable()%\nSET employeeName TO $''''''\nSET employeeEmail TO $''''''\nSET department TO $''''''\nSET employeeFolder TO $''''''\nSET employeeId TO $''''''\nExcel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: $'''Employees.xlsx''' Visible: True ReadOnly: False Instance=> ExcelInstance\nExcel.ReadFromExcel.ReadAllCells Instance: ExcelInstance FirstRowIsHeader: True RangeValue=> dtEmployees\nLOOP FOREACH CurrentRow IN %dtEmployees%\n    SET rowStatus TO %currentRow['Status']%\n    SET employeeName TO %currentRow['Name']%\n    SET employeeEmail TO %currentRow['Email']%\n    SET department TO %currentRow['Department']%\n    SET employeeId TO %currentRow['EmployeeID']%\n    IF employeeEmail = $'''''' THEN\n        Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Email missing for %employeeName%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult\n    ELSE\n        IF rowStatus = $'''Completed''' THEN\n            # [Log - Warn] $'''Row is already processed, skipping it'''\n        ELSE\n            SET employeeFolder TO $'''Employees\\%employeeId%_%employeeName%'''\n            Folder.Create FolderPath: %employeeFolder%\n            File.WriteText.WriteText File: $'''%employeeFolder%\\WelcomeLetter.txt''' Text: $'''Welcome %employeeName%\n            Department: %department%''' AppendNewLine: False IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.UTF8\n            SWITCH %department%\n                DEFAULT\n                    # [Log - Error] $'''Un-detected Department'''\n                CASE $'''IT'''\n                    # [Log - Info] $'''Assigning laptop'''\n                CASE $'''HR'''\n                    # [Log - Info] $'''Assigning HR access'''\n                CASE $'''Finance'''\n                    # [Log - Info] $'''Assigning Finance systems'''\n            END SWITCH\n            SET CurrentRow['Status'] TO $'''Completed'''\n        END\n    END\nEND\nExcel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %dtEmployees% Column: 1 Row: 1\nExcel.CloseExcel.Close Instance: ExcelInstance"
+  }
+]
