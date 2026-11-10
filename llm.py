@@ -84,6 +84,43 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
     # Check if Gemini or OpenAI
     is_gemini = "gemini" in clean_model.lower() or not (clean_model.startswith("gpt-") or "claude" in clean_model.lower())
     
+    # Prepare metadata instruction for Automation Anywhere node syntax if requested
+    if include_node_metadata:
+        metadata_instruction = (
+            "\n\nCRITICAL NODE METADATA STRUCTURE (Automation Anywhere / Taskbot Syntax Requirement):\n"
+            "Prepend each converted action with a node metadata comment matching this exact format:\n"
+            "# node_id=<BotName> 1.<5-digit-index>.<8-char-hex>; package=<Package>; action=<Action>; resolved=<ResolvedAction>\n"
+            "Examples:\n"
+            "# Task banner at the top:\n"
+            "# node_id=BotName 1.00001.90b40efc; package=Comment; action=Comment; resolved=comment\n"
+            "# ********************************************************TASK NAME: BotName ****************************************************************************************************************************************************\n\n"
+            "# Variables:\n"
+            "# node_id=BotName 1.00004.0c8f821d; package=String; action=assign; resolved=assign\n"
+            "SET vstr_Name TO $''''''\n\n"
+            "# node_id=BotName 1.00005.93398219; package=Number; action=assignToNumber; resolved=assign\n"
+            "SET vint_Count TO $'''0'''\n\n"
+            "# node_id=BotName 1.00008.38974a9c; package=Boolean; action=assign; resolved=assign\n"
+            "SET vbln_Flag TO $'''constant'''\n\n"
+            "# Section divider:\n"
+            "# node_id=BotName 1.00011.24e91e99; package=Comment; action=Comment; resolved=comment\n"
+            "# ==============================================================================================================================================================\n\n"
+            "# If / ElseIf / Else:\n"
+            "# node_id=BotName 1.00024.c9e97547; package=If; action=if; resolved=if\n"
+            "IF condition THEN\n\n"
+            "# node_id=BotName 1.00026.5318137c; package=If; action=elseIf; resolved=else if\n"
+            "ELSE IF condition THEN\n\n"
+            "# node_id=BotName 1.00030.503b30e1; package=If; action=else; resolved=else\n"
+            "ELSE\n\n"
+            "# Delays:\n"
+            "# node_id=BotName 1.00032.fa26b3c1; package=Delay; action=delay; resolved=delay\n"
+            "WAIT TODO_DURATION\n\n"
+            "# MessageBox:\n"
+            "# node_id=BotName 1.00056.28736ee0; package=MessageBox; action=messageBox; resolved=show message\n"
+            "Display.ShowMessageDialog.ShowMessage Title: $'''Automation Anywhere Enterprise Client''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
+        )
+    else:
+        metadata_instruction = ""
+
     # 1. Try Gemini API
     if is_gemini and api_key:
         try:
@@ -91,7 +128,6 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
             gemini_model_name = clean_model if "gemini" in clean_model.lower() else "gemini-2.5-flash"
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model_name}:generateContent?key={api_key}"
             
-            metadata_instruction = " Please prepend each converted action with a node metadata comment: '# node_id=<Flow> <id>; package=<Package>; action=<Action>; resolved=<Resolved>'." if include_node_metadata else ""
             prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
             
             payload = {
@@ -130,7 +166,6 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
-            metadata_instruction = " Please prepend each converted action with a node metadata comment: '# node_id=<Flow> <id>; package=<Package>; action=<Action>; resolved=<Resolved>'." if include_node_metadata else ""
             prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
             
             payload = {

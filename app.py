@@ -57,9 +57,9 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("⚙️ Output Options")
     include_node_metadata = st.checkbox(
-        "Include Node Metadata (# node_id=...)",
-        value=False,
-        help="Prepend each action with a comment indicating node_id, package, action, and resolved mapping."
+        "Automation Anywhere Node Syntax (# node_id=...)",
+        value=True,
+        help="Format output using Automation Anywhere node metadata structure (# node_id=<Bot> 1.00001.<hex>; package=...; action=...; resolved=...)."
     )
 
     if api_key:

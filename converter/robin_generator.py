@@ -1,4 +1,5 @@
 import re
+import hashlib
 from typing import List, Dict, Optional
 from .models import WorkflowFile, ParsedActivity, ParsedVariable, ParsedArgument, ParsedSelector, ProjectMetadata
 from .activity_converter import (
@@ -52,6 +53,7 @@ PACKAGE_MAP = {
     "Delay": ("Delay", "delay", "delay"),
     "MessageBox": ("MessageBox", "messageBox", "show message"),
     "InputDialog": ("Display", "inputDialog", "input dialog"),
+    "ShowFormActivity": ("Display", "inputDialog", "input dialog"),
     "HttpClient": ("Web", "invokeWebService", "invoke web service"),
     "NetHttpRequest": ("Web", "invokeWebService", "invoke web service"),
     "DeserializeJson": ("Json", "deserializeJson", "convert json to custom object"),
@@ -61,6 +63,12 @@ PACKAGE_MAP = {
     "If": ("If", "if", "if"),
     "ForEach": ("Loop", "loop", "loop foreach"),
     "ExcelApplicationScope": ("Excel", "excelScope", "launch excel"),
+    "ExcelWriteRange": ("Excel", "writeCell", "write datatable to excel"),
+    "WriteRangeX": ("Excel", "writeCell", "write datatable to excel"),
+    "ExcelReadRange": ("Excel", "readRange", "read excel range"),
+    "ReadRangeX": ("Excel", "readRange", "read excel range"),
+    "ExcelSaveWorkbook": ("Excel", "saveExcel", "save excel"),
+    "ExcelCloseWorkbook": ("Excel", "closeExcel", "close excel"),
     "OpenBrowser": ("WebAutomation", "openBrowser", "launch chrome"),
     "Click": ("WebAutomation", "click", "click"),
     "TypeInto": ("WebAutomation", "typeInto", "populate text field"),
@@ -81,6 +89,14 @@ class RobinGenerator:
         self.include_node_metadata = include_node_metadata
         self.current_workflow_name = "Workflow"
         self.node_counter = 1
+
+    def _create_node_comment(self, package: str, action: str, resolved: str) -> str:
+        """Create a structured Automation Anywhere / Robin node metadata comment."""
+        seed = f"{self.current_workflow_name}_{self.node_counter:05d}_{package}_{action}"
+        hex8 = hashlib.md5(seed.encode("utf-8")).hexdigest()[:8]
+        node_str = f"1.{self.node_counter:05d}.{hex8}"
+        self.node_counter += 1
+        return f"# node_id={self.current_workflow_name} {node_str}; package={package}; action={action}; resolved={resolved}"
 
     def generate_for_workflow(self, wf: WorkflowFile, as_subflow: bool = False) -> str:
         """Generate Robin script for a single workflow file."""
@@ -105,33 +121,50 @@ class RobinGenerator:
 
         action_lines: List[str] = []
 
+        if self.include_node_metadata:
+            banner_comment = self._create_node_comment("Comment", "Comment", "comment")
+            action_lines.append(banner_comment)
+            action_lines.append(f"# ********************************************************TASK NAME: {self.current_workflow_name} ****************************************************************************************************************************************************")
+            action_lines.append("")
+
         # Variable initializations
         if wf.variables:
             action_lines.append("# --- Initialize Variables ---")
+            action_lines.append("")
             for var in wf.variables:
+                vtype = var.type_name.lower()
+                if "int" in vtype or "num" in vtype or "double" in vtype:
+                    var_pkg = "Number"
+                    act = "assignToNumber"
+                elif "bool" in vtype:
+                    var_pkg = "Boolean"
+                    act = "assign"
+                elif "list" in vtype or "array" in vtype:
+                    var_pkg = "List"
+                    act = "assign"
+                elif "datatable" in vtype:
+                    var_pkg = "DataTable"
+                    act = "assign"
+                elif "jobject" in vtype or "customobject" in vtype:
+                    var_pkg = "CustomObject"
+                    act = "assign"
+                else:
+                    var_pkg = "String"
+                    act = "assign"
+
                 if self.include_node_metadata:
-                    vtype = var.type_name.lower()
-                    if "int" in vtype:
-                        var_pkg = "Number"
-                    elif "bool" in vtype:
-                        var_pkg = "Boolean"
-                    elif "list" in vtype or "array" in vtype:
-                        var_pkg = "List"
-                    elif "datatable" in vtype:
-                        var_pkg = "DataTable"
-                    elif "jobject" in vtype or "customobject" in vtype:
-                        var_pkg = "CustomObject"
-                    else:
-                        var_pkg = "String"
-                    action_lines.append(f"# node_id={self.current_workflow_name} 1.{self.node_counter:05d}; package={var_pkg}; action=assign; resolved=assign")
-                    self.node_counter += 1
+                    action_lines.append(self._create_node_comment(var_pkg, act, "assign"))
 
                 if var.default_value and var.default_value != "{x:Null}":
                     val = convert_uipath_expression_to_robin(var.default_value)
                     action_lines.append(f"SET {var.name} TO {val}")
+                elif var_pkg == "Boolean":
+                    action_lines.append(f"SET {var.name} TO $'''constant'''")
+                elif var_pkg == "Number":
+                    action_lines.append(f"SET {var.name} TO $'''0'''")
                 else:
                     action_lines.append(f"SET {var.name} TO $''''''")
-            action_lines.append("")
+                action_lines.append("")
 
         # Convert root activity and its tree
         if wf.root_activity:
@@ -275,22 +308,23 @@ class RobinGenerator:
             then_code = "\n".join([self._convert_activity(c) for c in then_children if self._convert_activity(c)])
             else_code = "\n".join([self._convert_activity(c) for c in else_children if self._convert_activity(c)])
             
-            res = [f"IF {robin_cond} THEN"]
+            res = []
+            if self.include_node_metadata:
+                res.append(self._create_node_comment("If", "if", "if"))
+            res.append(f"IF {robin_cond} THEN")
             if then_code:
                 res.append(indent_lines(then_code, 1))
             else:
                 res.append("    # Empty Then block")
                 
             if else_code:
+                if self.include_node_metadata:
+                    res.append(f"\n{self._create_node_comment('If', 'else', 'else')}")
                 res.append("ELSE")
                 res.append(indent_lines(else_code, 1))
                 
             res.append("END")
             activity.is_mapped = True
-            if self.include_node_metadata:
-                node_str = f"1.{self.node_counter:05d}"
-                self.node_counter += 1
-                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -338,9 +372,7 @@ class RobinGenerator:
             res.append("END")
             activity.is_mapped = True
             if self.include_node_metadata:
-                node_str = f"1.{self.node_counter:05d}"
-                self.node_counter += 1
-                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
+                res.insert(0, self._create_node_comment("Loop", "loop", "loop foreach"))
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -354,9 +386,7 @@ class RobinGenerator:
             res.append("END")
             activity.is_mapped = True
             if self.include_node_metadata:
-                node_str = f"1.{self.node_counter:05d}"
-                self.node_counter += 1
-                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
+                res.insert(0, self._create_node_comment("Loop", "loop", "loop while"))
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -456,9 +486,8 @@ class RobinGenerator:
             activity.is_mapped = True
             if self.include_node_metadata and code:
                 pkg, action, resolved = PACKAGE_MAP.get(tag, ("Core", tag, tag.lower()))
-                node_str = f"1.{self.node_counter:05d}"
-                self.node_counter += 1
-                code = f"# node_id={self.current_workflow_name} {node_str}; package={pkg}; action={action}; resolved={resolved}\n{code}"
+                meta_comment = self._create_node_comment(pkg, action, resolved)
+                code = f"{meta_comment}\n{code}"
             activity.robin_code = code
             return code
 
