@@ -1,0 +1,133 @@
+# node_id=ZendeskAuthenticationBot 1.00001.90b40efc; package=Comment; action=Comment; resolved=comment
+# ********************************************************TASK NAME: ZendeskAuthenticationBot ****************************************************************************************************************************************************
+
+# node_id=ZendeskAuthenticationBot 1.00004.0c8f821d; package=String; action=assign; resolved=assign
+SET vstr_MachineName TO $'''$System:Machine$'''
+
+# node_id=ZendeskAuthenticationBot 1.00005.93398219; package=Number; action=assignToNumber; resolved=assign
+SET E_vint_ErrorLineNumber TO $'''$ErrorLineNumber-Default-Val$'''
+
+# node_id=ZendeskAuthenticationBot 1.00006.9c2ad22b; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionMessage TO $'''$ErrorMessage-Default-Val$'''
+
+# node_id=ZendeskAuthenticationBot 1.00007.2196f1d3; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionType TO $'''$ErrorMessage-Default-Val$'''
+
+# node_id=ZendeskAuthenticationBot 1.00008.38974a9c; package=Boolean; action=assign; resolved=assign
+SET E_bln_IsError TO $'''constant'''
+
+# node_id=ZendeskAuthenticationBot 1.00009.81c27750; package=Boolean; action=assign; resolved=assign
+SET E_bln_EmailSent TO $'''constant'''
+
+# node_id=ZendeskAuthenticationBot 1.00010.5afd328e; package=String; action=assign; resolved=assign
+SET vstr_BotErrorCode TO $'''NA'''
+
+# node_id=ZendeskAuthenticationBot 1.00011.24e91e99; package=Comment; action=Comment; resolved=comment
+# ==============================================================================================================================================================
+
+# node_id=ZendeskAuthenticationBot 1.00015.d4306958; package=Number; action=assignToNumber; resolved=assign
+SET vint_TaskNameListSize TO $'''$vlst_TaskNameSplit.List:size$'''
+
+# node_id=ZendeskAuthenticationBot 1.00016.62c17dd4; package=Number; action=assignToNumber; resolved=assign
+SET vint_TaskNameListSize TO $'''%vint_TaskNameListSize%-1'''
+
+# node_id=ZendeskAuthenticationBot 1.00017.6d826094; package=String; action=assign; resolved=assign
+SET vstr_TaskName TO $'''$vlst_TaskNameSplit[%vint_TaskNameListSize%]$'''
+
+# node_id=ZendeskAuthenticationBot 1.00018.ae47a20a; package=Comment; action=Comment; resolved=comment
+# ==============================================================================================================================================================
+
+# node_id=ZendeskAuthenticationBot 1.00023.11fd9ff9; package=Comment; action=Comment; resolved=comment
+# ---There's no status code node in json response. Hence validating the call success if API call response is empty  not 
+
+
+# node_id=ZendeskAuthenticationBot 1.00024.c9e97547; package=If; action=if; resolved=if
+IF vstr_ResponseBody = $'''result''' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00026.5318137c; package=If; action=elseIf; resolved=else if
+ELSE IF Counter = $'''$vdct_Config{RetryLoop}.String:toNumber$''' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00027.7fa109e1; package=String; action=assign; resolved=assign
+SET vstr_BotErrorCode TO $'''TE_DT-7498_03'''
+
+# node_id=ZendeskAuthenticationBot 1.00028.197aa575; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionMessage TO vdct_Config['$vstr_BotErrorCode$']
+
+# node_id=ZendeskAuthenticationBot 1.00030.503b30e1; package=If; action=else; resolved=else
+ELSE
+
+# node_id=ZendeskAuthenticationBot 1.00031.dd7d314a; package=String; action=assign; resolved=assign
+SET vstr_AuditLogMessage TO $'''Zendesk Authentication unsuccessful. Bot is retrying again'''
+
+# node_id=ZendeskAuthenticationBot 1.00032.fa26b3c1; package=Delay; action=delay; resolved=delay
+WAIT TODO_DURATION
+
+# node_id=ZendeskAuthenticationBot 1.00036.da216f75; package=If; action=if; resolved=if
+IF vstr_BotErrorCode = '' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00037.0f4c9bfb; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionType TO $'''Technical Exception'''
+
+# node_id=ZendeskAuthenticationBot 1.00038.afc626dd; package=String; action=assign; resolved=assign
+SET vstr_BotErrorCode TO $'''TE_DT-7498_03'''
+
+# node_id=ZendeskAuthenticationBot 1.00039.add03335; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionMessage TO vdct_Config['$vstr_BotErrorCode$']
+
+# node_id=ZendeskAuthenticationBot 1.00041.3bef6cdf; package=If; action=if; resolved=if
+IF Counter = $'''$vdct_Config{RetryLoop}.String:toNumber$''' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00042.535dbed4; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionType TO $'''Technical Exception'''
+
+# node_id=ZendeskAuthenticationBot 1.00043.ecb235ad; package=String; action=assign; resolved=assign
+SET vstr_BotErrorCode TO $'''TE_DT-7498_03'''
+
+# node_id=ZendeskAuthenticationBot 1.00044.1c51d602; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionMessage TO vdct_Config['$vstr_BotErrorCode$']
+
+# node_id=ZendeskAuthenticationBot 1.00046.5586c418; package=If; action=else; resolved=else
+ELSE
+
+# node_id=ZendeskAuthenticationBot 1.00048.cdd4c892; package=String; action=assign; resolved=assign
+SET vstr_AuditLogMessage TO $'''Zendesk Authentication unsuccessful. Bot is retrying again'''
+
+# node_id=ZendeskAuthenticationBot 1.00051.b5c9a931; package=Delay; action=delay; resolved=delay
+WAIT TODO_DURATION
+
+# node_id=ZendeskAuthenticationBot 1.00054.a21da1df; package=String; action=assign; resolved=assign
+SET E_Message TO $'''%vstr_TaskName% task Completed'''
+
+# node_id=ZendeskAuthenticationBot 1.00056.28736ee0; package=MessageBox; action=messageBox; resolved=show message
+Display.ShowMessageDialog.ShowMessage Title: $'''Automation Anywhere Enterprise Client''' Message: $'''$E_vint_ErrorLineNumber.Number:toString$
+%E_vstr_ExceptionMessage%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+
+# node_id=ZendeskAuthenticationBot 1.00057.613df3db; package=Boolean; action=assign; resolved=assign
+SET E_bln_IsError TO $'''constant'''
+
+# node_id=ZendeskAuthenticationBot 1.00059.4065893c; package=If; action=if; resolved=if
+IF E_vstr_ExceptionType = $'''Business Exception''' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00060.a9f48859; package=Comment; action=Comment; resolved=comment
+# Business Exception
+
+# node_id=ZendeskAuthenticationBot 1.00061.22337d21; package=If; action=else; resolved=else
+ELSE
+
+# node_id=ZendeskAuthenticationBot 1.00062.9d2fe34e; package=If; action=if; resolved=if
+IF E_vstr_ExceptionType = $'''Technical Exception''' THEN
+
+# node_id=ZendeskAuthenticationBot 1.00063.fcd3ee96; package=Comment; action=Comment; resolved=comment
+# Technical Exception
+
+# node_id=ZendeskAuthenticationBot 1.00064.5a7adadb; package=If; action=else; resolved=else
+ELSE
+
+# node_id=ZendeskAuthenticationBot 1.00065.45a048de; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionType TO $'''Technical Exception'''
+
+# node_id=ZendeskAuthenticationBot 1.00066.3764477a; package=String; action=assign; resolved=assign
+SET vstr_BotErrorCode TO $'''TE_DT-7498_06'''
+
+# node_id=ZendeskAuthenticationBot 1.00067.05f358c5; package=String; action=assign; resolved=assign
+SET E_vstr_ExceptionMessage TO $'''%vdct_Config['%vstr_BotErrorCode%']% : %E_vstr_ExceptionMessage%'''
