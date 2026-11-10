@@ -148,7 +148,9 @@ class RobinGenerator:
             other_wfs = project.workflows[1:]
 
         if main_wf:
-            output_parts.append(self.generate_for_workflow(main_wf, as_subflow=True))
+            # Emit bare actions for single-flow bots for direct Ctrl+V canvas paste in PAD
+            as_sub = len(other_wfs) > 0
+            output_parts.append(self.generate_for_workflow(main_wf, as_subflow=as_sub))
             output_parts.append("")
 
         # 4. Other subflows
@@ -165,10 +167,41 @@ class RobinGenerator:
         # 1. Containers: Sequence, Flowchart, FlowStep, StateMachine, ExcelProcessScopeX
         if tag in ["Sequence", "Flowchart", "FlowStep", "StateMachine", "ExcelProcessScopeX"]:
             inner_lines = []
-            for child in activity.children:
+            i = 0
+            while i < len(activity.children):
+                child = activity.children[i]
+                
+                # Check if child is HttpClient / NetHttpRequest followed immediately by a response MessageBox
+                if child.type_name in ["HttpClient", "NetHttpRequest"]:
+                    if i + 1 < len(activity.children) and activity.children[i+1].type_name == "MessageBox":
+                        msg_child = activity.children[i+1]
+                        http_code = convert_http_client(child, include_status_check=False)
+                        msg_code = convert_message_box(msg_child)
+                        status_var = re.sub(r'[\[\]]', '', str(child.properties.get("StatusCode", "responseStatus"))).strip() or "responseStatus"
+                        result_var = re.sub(r'[\[\]]', '', str(child.properties.get("Result", "responseString"))).strip() or "responseString"
+                        
+                        wrapped_block = (
+                            f"{http_code}\n"
+                            f"IF {status_var} >= 200 AND {status_var} < 300 THEN\n"
+                            f"{indent_lines(msg_code, 1)}\n"
+                            f"ELSE\n"
+                            f"    Display.ShowMessage Title: $'''API Error''' "
+                            f"Message: $'''HTTP request failed with status: %{status_var}%\\n%{result_var}%''' "
+                            f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
+                            f"    FlowControl.StopFlow\n"
+                            f"END"
+                        )
+                        inner_lines.append(wrapped_block)
+                        child.is_mapped = True
+                        msg_child.is_mapped = True
+                        i += 2
+                        continue
+                        
                 c_code = self._convert_activity(child)
                 if c_code:
                     inner_lines.append(c_code)
+                i += 1
+                
             activity.is_mapped = True
             return "\n".join(inner_lines)
 

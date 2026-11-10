@@ -1,5 +1,5 @@
 import re
-from typing import Tuple
+from typing import Tuple, List
 
 def parse_uipath_duration(duration_str: str) -> float:
     """
@@ -36,6 +36,47 @@ def clean_uipath_expression(raw_expr: str) -> str:
     if expr.startswith('[') and expr.endswith(']'):
         expr = expr[1:-1].strip()
     return expr
+
+def has_unquoted_operator(s: str) -> bool:
+    """Check if string contains unquoted + or & concatenation operators."""
+    in_quote = False
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch == '"':
+            if in_quote and i + 1 < len(s) and s[i+1] == '"':
+                i += 1  # Skip escaped quote ""
+            else:
+                in_quote = not in_quote
+        elif not in_quote and ch in ['+', '&']:
+            return True
+        i += 1
+    return False
+
+def split_unquoted_concat(s: str) -> List[str]:
+    """Split string on + or & outside of double quotes."""
+    parts = []
+    current = []
+    in_quote = False
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        if ch == '"':
+            if in_quote and i + 1 < len(s) and s[i+1] == '"':
+                current.append('""')
+                i += 1
+            else:
+                in_quote = not in_quote
+                current.append(ch)
+        elif not in_quote and ch in ['+', '&']:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(ch)
+        i += 1
+    if current:
+        parts.append("".join(current).strip())
+    return [p for p in parts if p]
 
 def convert_uipath_expression_to_robin(raw_expr: str) -> str:
     """
@@ -74,16 +115,47 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
         
     # --- From here on, has_brackets is TRUE (Expression context) ---
 
+    clean_expr_str = expr.strip()
+
+    # 1. Check for .NET instantiations: new JObject(), New JArray(), New List(...)
+    if re.match(r'^new\s+jobject(\(\))?$', clean_expr_str, re.IGNORECASE):
+        return "$'''{}'''"
+    if re.match(r'^new\s+(?:jarray|list\b)(\(\))?$', clean_expr_str, re.IGNORECASE):
+        return "[]"
+
+    # 2. Check for Path.Combine(...)
+    m_path = re.search(r'Path\.Combine\s*\([^,]+,\s*"([^"]+)"\)', clean_expr_str, re.DOTALL)
+    if m_path:
+        fname = m_path.group(1)
+        return f"$'''%SpecialFolder.DesktopDirectory%\\{fname}'''"
+
+    # 3. Check for VB array literal { ... } (e.g. AddDataRow ArrayRow)
+    if clean_expr_str.startswith('{') and clean_expr_str.endswith('}'):
+        inner_arr = clean_expr_str[1:-1].strip()
+        items = [i.strip() for i in re.split(r',\s*(?![^()]*\))', inner_arr) if i.strip()]
+        robin_items = []
+        for item in items:
+            m_tok = re.match(r'^([a-zA-Z0-9_]+)\("([^"]+)"\)(?:\.ToString(?:\(\))?)?$', item)
+            if m_tok:
+                tok_obj = "CurrentItem" if m_tok.group(1) == "currentJToken" else m_tok.group(1)
+                robin_items.append(f"CurrentItem['{m_tok.group(2)}']")
+            elif item.endswith(".ToString") or item.endswith(".ToString()"):
+                v = re.sub(r'\.ToString(?:\(\))?$', '', item).strip()
+                robin_items.append(f"%{v}%")
+            else:
+                robin_items.append(item)
+        return "[" + ", ".join(robin_items) + "]"
+
+    # 4. Check if a single string literal with quotes: e.g. ["Hello World"] or JSON string ["{""id"": 1}"]
+    if clean_expr_str.startswith('"') and clean_expr_str.endswith('"') and len(clean_expr_str) >= 2:
+        if not has_unquoted_operator(clean_expr_str):
+            inner = clean_expr_str[1:-1].replace('""', '"')
+            return f"$'''{inner}'''"
+
     # Pre-clean common VB.NET idioms
     # Replace escaped quotes in VB: "" -> "
     vb_clean = expr.replace('""', '"')
     
-    # Check if a single string literal with quotes: e.g. ["Hello World"]
-    single_str_match = re.match(r'^"([^"]*)"$', vb_clean, re.DOTALL)
-    if single_str_match:
-        content = single_str_match.group(1)
-        return f"$'''{content}'''"
-        
     # Check if string interpolation $"Hello {name}"
     interp_match = re.match(r'^\$"([^"]*)"$', vb_clean, re.DOTALL)
     if interp_match:
@@ -105,11 +177,9 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
         return f"%{var_obj}['{var_key}']%"
 
     # Check if string concatenation: "prefix " + var + " suffix" or & in VB
-    # Handle split on + or & outside quotes
-    parts = re.split(r'\s*[\+&]\s*', vb_clean)
-    if len(parts) > 1:
-        has_string_part = any(p.strip().startswith('"') and p.strip().endswith('"') for p in parts)
-        if has_string_part or any("vbCrLf" in p or "NewLine" in p for p in parts):
+    if has_unquoted_operator(clean_expr_str):
+        parts = split_unquoted_concat(clean_expr_str)
+        if len(parts) > 1:
             text_builder = []
             is_all_text_and_vars = True
             for p in parts:
@@ -117,7 +187,7 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
                 if p_strip in ["vbCrLf", "Environment.NewLine"]:
                     text_builder.append("\n")
                 elif p_strip.startswith('"') and p_strip.endswith('"'):
-                    text_builder.append(p_strip[1:-1])
+                    text_builder.append(p_strip[1:-1].replace('""', '"'))
                 elif re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', p_strip):
                     text_builder.append(f"%{p_strip}%")
                 elif p_strip.endswith(".ToString") or p_strip.endswith(".ToString()"):

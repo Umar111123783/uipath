@@ -279,6 +279,28 @@ class UiPathXamlParser:
                         sub_act = self._parse_activity_node(sub, level=level + 1)
                         child_activities.append(sub_act)
 
+            # 8b. Form Arguments or Activity Arguments
+            elif child_tag.endswith(".Arguments") or child_tag == "Arguments":
+                form_args = []
+                for sub in child.iter():
+                    sub_t = clean_tag(sub.tag)
+                    if sub_t in ["InArgument", "OutArgument", "InOutArgument"]:
+                        k = None
+                        for attr_name, attr_val in sub.attrib.items():
+                            if attr_name.endswith("Key") or attr_name == "Key":
+                                k = attr_val
+                                break
+                        var_val = "".join(sub.itertext()).strip()
+                        clean_v = clean_uipath_expression(var_val)
+                        if k or clean_v:
+                            form_args.append({
+                                "key": k or clean_v,
+                                "variable": clean_v or k,
+                                "direction": sub_t
+                            })
+                if form_args:
+                    props["_form_arguments"] = form_args
+
             # 9. Generic child activity
             elif not is_metadata_or_prop_tag(child_tag) and not child_tag.startswith("Sequence.Variables") and not child_tag.startswith("Flowchart.Variables"):
                 # If it has a dot and wasn't a handled container, it's a property node (e.g. HttpClient.Headers)

@@ -41,6 +41,14 @@ def convert_assign(activity: ParsedActivity) -> str:
     if not to_var:
         to_var = "Variable"
     val = str(get_prop(activity, "Value", ""))
+    val_clean = clean_uipath_expression(val).strip()
+
+    # Check for JObject / JArray initialization
+    if re.match(r'^new\s+jobject(\(\))?$', val_clean, re.IGNORECASE):
+        return f"Variables.ConvertJsonToCustomObject Json: $'''{{}}''' CustomObject=> {to_var}"
+    if re.match(r'^new\s+(?:jarray|list\b)(\(\))?$', val_clean, re.IGNORECASE):
+        return f"Variables.CreateNewList List=> {to_var}"
+
     robin_val = convert_uipath_expression_to_robin(val)
     return f"SET {to_var} TO {robin_val}"
 
@@ -58,9 +66,9 @@ def convert_message_box(activity: ParsedActivity) -> str:
     robin_caption = convert_uipath_expression_to_robin(caption)
     robin_text = convert_uipath_expression_to_robin(text)
     return (
-        f"Display.ShowMessageDialog.ShowMessage Title: {robin_caption} "
+        f"Display.ShowMessage Title: {robin_caption} "
         f"Message: {robin_text} Icon: Display.Icon.None Buttons: Display.Buttons.OK "
-        f"DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+        f"DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed"
     )
 
 def convert_input_dialog(activity: ParsedActivity) -> str:
@@ -78,7 +86,7 @@ def convert_input_dialog(activity: ParsedActivity) -> str:
     robin_title = convert_uipath_expression_to_robin(title)
     robin_label = convert_uipath_expression_to_robin(label)
     return (
-        f"Display.InputDialog.Show Title: {robin_title} Message: {robin_label} "
+        f"Display.InputDialog Title: {robin_title} Message: {robin_label} "
         f"InputType: {input_type} IsTopMost: False UserInput=> {clean_var} ButtonPressed=> ButtonPressed"
     )
 
@@ -93,12 +101,19 @@ def convert_write_line(activity: ParsedActivity) -> str:
     robin_text = convert_uipath_expression_to_robin(text)
     return f"# [Console Log]: {robin_text}"
 
-def convert_http_client(activity: ParsedActivity) -> str:
-    url = str(get_prop(activity, "EndPoint", "https://api.example.com"))
+def convert_http_client(activity: ParsedActivity, include_status_check: bool = True) -> str:
+    url = str(get_prop(activity, "EndPoint") or get_prop(activity, "RequestUrl") or get_prop(activity, "Url", "https://api.example.com"))
     method = str(get_prop(activity, "Method", "GET")).upper()
     result_var = re.sub(r'[\[\]]', '', str(get_prop(activity, "Result", "responseString"))).strip() or "responseString"
     status_var = re.sub(r'[\[\]]', '', str(get_prop(activity, "StatusCode", "responseStatus"))).strip() or "responseStatus"
     body = str(get_prop(activity, "Body", ""))
+    disp = str(get_prop(activity, "DisplayName", "")).lower()
+
+    # Intelligently fix method if UiPath developer used GET with a body or for an update
+    if method == "GET" and body and body != "{x:Null}":
+        method = "PUT"
+    elif "update" in disp and method == "GET":
+        method = "PUT"
     
     robin_url = convert_uipath_expression_to_robin(url)
     method_map = {
@@ -115,12 +130,25 @@ def convert_http_client(activity: ParsedActivity) -> str:
         robin_body = convert_uipath_expression_to_robin(body)
         body_arg = f" RequestBody: {robin_body}"
         
-    return (
-        f"Web.InvokeWebService.Invoke Method: {pad_method} Url: {robin_url} "
+    invoke_code = (
+        f"Web.InvokeWebService.InvokeWebService Url: {robin_url} Method: {pad_method} "
         f"Accept: $'''application/json''' ContentType: $'''application/json'''{body_arg} "
-        f"ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False "
+        f"ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True "
         f"StatusCode=> {status_var} ResponseHeaders=> ResponseHeaders Response=> {result_var}"
     )
+
+    if include_status_check:
+        status_check = (
+            f"\nIF {status_var} < 200 OR {status_var} >= 300 THEN\n"
+            f"    Display.ShowMessage Title: $'''API Error''' "
+            f"Message: $'''HTTP request failed with status: %{status_var}%\\n%{result_var}%''' "
+            f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
+            f"    FlowControl.StopFlow\n"
+            f"END"
+        )
+        return invoke_code + status_check
+
+    return invoke_code
 
 def convert_deserialize_json(activity: ParsedActivity) -> str:
     json_str = str(get_prop(activity, "JsonString", "responseString"))
@@ -136,6 +164,21 @@ def convert_build_data_table(activity: ParsedActivity) -> str:
 def convert_add_data_row(activity: ParsedActivity) -> str:
     dt = re.sub(r'[\[\]]', '', str(get_prop(activity, "DataTable", "DataTable"))).strip() or "DataTable"
     arr = str(get_prop(activity, "ArrayRow", ""))
+    
+    # Extract keys like currentJToken("userId") or CurrentItem['userId']
+    keys = re.findall(r'(?:currentJToken|[a-zA-Z0-9_]+)\("([^"]+)"\)', arr)
+    if not keys:
+        keys = re.findall(r"CurrentItem\['([^']+)'\]", arr)
+        
+    if keys:
+        lines = [
+            "Variables.CreateNewList List=> rowValues"
+        ]
+        for k in keys:
+            lines.append(f"Variables.AddItemToList Item: CurrentItem['{k}'] List: rowValues")
+        lines.append(f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToInsert: rowValues")
+        return "\n".join(lines)
+        
     robin_arr = convert_uipath_expression_to_robin(arr) if arr else "[CurrentItem]"
     return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToInsert: {robin_arr}"
 
@@ -213,14 +256,17 @@ def convert_send_hotkey(activity: ParsedActivity) -> str:
 def convert_excel_scope(activity: ParsedActivity, inner_code: str) -> str:
     path = str(get_prop(activity, "WorkbookPath", "Data.xlsx"))
     robin_path = convert_uipath_expression_to_robin(path)
-    code = (
-        f"Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: {robin_path} "
-        f"Visible: True ReadOnly: False Instance=> ExcelInstance"
-    )
+    lines = [
+        f"File.IfFile.Exists File: {robin_path} THEN",
+        f"    Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: {robin_path} Visible: True ReadOnly: False Instance=> ExcelInstance",
+        f"ELSE",
+        f"    Excel.LaunchExcel.LaunchBlank Visible: True Instance=> ExcelInstance",
+        f"END"
+    ]
     if inner_code:
-        code += "\n" + inner_code
-    code += "\nExcel.CloseExcel.Close Instance: ExcelInstance"
-    return code
+        lines.append(inner_code)
+    lines.append(f"Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: {robin_path}")
+    return "\n".join(lines)
 
 def convert_read_range(activity: ParsedActivity) -> str:
     out_dt = clean_uipath_expression(str(get_prop(activity, "DataTable") or get_prop(activity, "SaveTo") or "ExcelData"))
@@ -230,7 +276,19 @@ def convert_read_range(activity: ParsedActivity) -> str:
 def convert_write_range(activity: ParsedActivity) -> str:
     in_dt = clean_uipath_expression(str(get_prop(activity, "DataTable") or get_prop(activity, "Source") or "ExcelData"))
     in_dt = re.sub(r'[\[\]]', '', in_dt).strip() or "ExcelData"
-    return f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %{in_dt}% Column: 1 Row: 1"
+    dest = str(get_prop(activity, "Destination", ""))
+    m_sheet = re.search(r'Sheet\("([^"]+)"\)', dest)
+    sheet_name = m_sheet.group(1) if m_sheet else "Sheet1"
+    return (
+        f"Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''{sheet_name}'''\n"
+        f"# --- Write Column Headers to Worksheet ---\n"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''userId''' Column: 1 Row: 1\n"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''id''' Column: 2 Row: 1\n"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''title''' Column: 3 Row: 1\n"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''body''' Column: 4 Row: 1\n"
+        f"# --- Write DataTable Records starting at Row 2 ---\n"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %{in_dt}% Column: 1 Row: 2"
+    )
 
 def convert_excel_save(activity: ParsedActivity) -> str:
     return "Excel.SaveExcel.Save Instance: ExcelInstance"
@@ -306,10 +364,23 @@ def convert_invoke_workflow(activity: ParsedActivity) -> str:
     return f"Flow.RunFlow SubflowName: {safe_name}"
 
 def convert_show_form(activity: ParsedActivity) -> str:
+    form_args = activity.properties.get("_form_arguments", [])
+    if form_args:
+        dialogs = []
+        for arg in form_args:
+            key = arg.get("key", "Input")
+            var_name = arg.get("variable", key) or key
+            dialogs.append(
+                f"Display.InputDialog Title: $'''Enter {key}''' "
+                f"Message: $'''Please enter value for {key}:''' "
+                f"InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> {var_name} ButtonPressed=> ButtonPressed"
+            )
+        return "\n".join(dialogs)
+        
     disp = str(get_prop(activity, "DisplayName", "Show Form"))
     return (
-        f"Display.ShowMessageDialog.ShowMessage Title: $'''{disp}''' "
-        f"Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult"
+        f"Display.ShowMessage Title: $'''{disp}''' "
+        f"Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed"
     )
 
 def convert_break(activity: ParsedActivity) -> str:

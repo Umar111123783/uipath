@@ -16,21 +16,50 @@ Your output MUST be a JSON object with two fields:
   "robin_script": "The complete, production-grade Power Automate Desktop (Robin) script ready to be pasted (Ctrl+V) directly into the Power Automate Desktop designer canvas."
 }
 
-Rules for the Robin Script:
-1. Always use exact Power Automate Desktop Robin syntax:
-   - Variable assignment: SET VarName TO $'''String''' or SET VarName TO %expression%
-   - User inputs: Display.InputDialog.Show Title: $'''...''' Message: $'''...''' UserInput=> VarName ButtonPressed=> ButtonPressed
-   - Message boxes: Display.ShowMessageDialog.ShowMessage Title: $'''...''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Log=> DialogResult
-   - Delays: Wait Delay: 3
-   - Web automation: WebAutomation.LaunchChrome.LaunchChrome, WebAutomation.Click.Click, WebAutomation.FormFilling.PopulateTextField.Populate, WebAutomation.CloseWebBrowser
-   - Excel: Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess, Excel.ReadFromExcel.ReadAllCells, Excel.WriteToExcel.WriteCell, Excel.CloseExcel.Close
-   - REST APIs: Web.InvokeWebService.Invoke Method: Web.Method.Get Url: $'''...''' Accept: $'''application/json''' ... Response=> responseString
-   - JSON: Variables.ConvertJsonToCustomObject Json: %responseString% CustomObject=> jsonObj
-   - Tables: Variables.CreateNewDatatable, Variables.AddRowToDataTable.AppendRowToDataTable
-   - Flow control: IF ... THEN ... ELSE ... END, SWITCH ... CASE ... DEFAULT ... END SWITCH, LOOP FOREACH ... IN ... END
-2. Never output '{x:Null}'. Output $'''''' for empty/null strings.
-3. If multiple workflows exist, structure them using FUNCTION SubflowName ... END FUNCTION.
-4. Provide the response strictly as valid JSON or as a JSON code block.
+CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
+1. CANVAS PASTE FORMAT (NO FUNCTION MAIN):
+   - For direct Ctrl+V pasting into the PAD designer canvas, do NOT wrap the main flow in 'FUNCTION Main ... END FUNCTION'. Output top-level bare action lines sequentially.
+   - Subflows (if any other than Main exist) may be appended at the bottom using 'FUNCTION SubflowName ... END FUNCTION'.
+
+2. EXACT NATIVE PAD ACTION IDENTIFIERS:
+   - Web service: Web.InvokeWebService.InvokeWebService Url: $'''...''' Method: Web.Method.Get ...
+   - Messages: Display.ShowMessage Title: $'''...''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+   - Inputs: Display.InputDialog Title: $'''...''' Message: $'''...''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> VarName ButtonPressed=> ButtonPressed
+   - Stop execution on critical failure: FlowControl.StopFlow
+
+3. VARIABLE INITIALIZATION (NO .NET SYNTAX):
+   - NEVER use .NET constructors like '%new JObject()%', '%New JArray()%', '%new List()%'.
+   - Initialize JSON objects: Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj
+   - Initialize lists/arrays: Variables.CreateNewList List=> jsonArray
+   - Initialize strings: SET VarName TO $''''''
+
+4. FORM & USER INPUTS:
+   - When a UiPath workflow uses forms (<ufa:ShowFormActivity>) or input arguments, ALWAYS generate `Display.InputDialog` for each field (e.g. newPostTitle, newPostDesc, postId, delPostId) so that variables are populated before being sent in POST/PUT request bodies!
+   - Example: Display.InputDialog Title: $'''Enter postTitle''' Message: $'''Please enter value for postTitle:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostTitle ButtonPressed=> ButtonPressed
+
+5. REST APIS & CRITICAL ERROR HANDLING:
+   - Extract URLs from EndPoint or RequestUrl (e.g. Url: $'''https://jsonplaceholder.typicode.com/posts/%delPostId%''').
+   - Method accuracy: When updating an existing post with a JSON request body, use Method: Web.Method.Put (never GET). For deleting, use Web.Method.Delete. For creating, use Web.Method.Post.
+   - Response validation & Stop flow on critical errors:
+     IF responseStatus < 200 OR responseStatus >= 300 THEN
+         Display.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus%\\n%responseString%''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+         FlowControl.StopFlow
+     END
+
+6. EXCEL WORKBOOK & WORKSHEET SETUP:
+   - Ensure the workbook file exists or create a blank one:
+     File.IfFile.Exists File: %excelPath% THEN
+         Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: %excelPath% Visible: True ReadOnly: False Instance=> ExcelInstance
+     ELSE
+         Excel.LaunchExcel.LaunchBlank Visible: True Instance=> ExcelInstance
+     END
+   - Explicitly activate the worksheet: Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''Sheet1'''
+   - Write headers and rows, then save and close:
+     Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: %excelPath%
+
+7. GENERAL SYNTAX:
+   - Never output '{x:Null}'. Output $'''''' for empty/null strings.
+   - Provide the response strictly as valid JSON or as a JSON code block.
 """
 
 def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]) -> Dict[str, Any]:

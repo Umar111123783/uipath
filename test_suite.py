@@ -85,7 +85,7 @@ class TestUiPathToRobinConverter(unittest.TestCase):
             self.assertEqual(proj.name, "AgeChecker")
             self.assertEqual(proj.total_unmapped, 0)
             robin = self.pm.get_full_project_robin(proj)
-            self.assertIn("Display.InputDialog.Show", robin)
+            self.assertIn("Display.InputDialog", robin)
             self.assertIn("IF userAgeText >= 18 THEN", robin)
 
     def test_real_data_crud_operation(self):
@@ -96,9 +96,40 @@ class TestUiPathToRobinConverter(unittest.TestCase):
             self.assertEqual(proj.name, "CrudOperation")
             self.assertEqual(proj.total_unmapped, 0)
             robin = self.pm.get_full_project_robin(proj)
-            self.assertIn("Web.InvokeWebService.Invoke", robin)
+            self.assertIn("Web.InvokeWebService.InvokeWebService", robin)
             self.assertIn("Variables.ConvertJsonToCustomObject", robin)
             self.assertIn("Variables.CreateNewDatatable", robin)
+
+            # 1. Variable initialization: No .NET constructors
+            self.assertNotIn("%new JObject()%", robin)
+            self.assertNotIn("%New JArray()%", robin)
+            self.assertIn("Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj", robin)
+            self.assertIn("Variables.CreateNewList List=> jsonArray", robin)
+
+            # 2. Form input prompts for POST/PUT variables
+            self.assertIn("UserInput=> newPostTitle", robin)
+            self.assertIn("UserInput=> newPostDesc", robin)
+
+            # 3. PUT method mapped correctly
+            self.assertIn("Method: Web.Method.Put", robin)
+
+            # 4. DELETE endpoint extracted from RequestUrl
+            self.assertIn("Url: $'''https://jsonplaceholder.typicode.com/posts/%delPostId%''' Method: Web.Method.Delete", robin)
+
+            # 5. HTTP response status verification wrapping success messages and stopping flow on error
+            self.assertIn("IF responseStatus >= 200 AND responseStatus < 300 THEN", robin)
+            self.assertIn("FlowControl.StopFlow", robin)
+
+            # 6. DataTable row mapping uses CurrentItem and rowValues list
+            self.assertNotIn('currentJToken', robin)
+            self.assertIn("Variables.AddItemToList Item: CurrentItem['userId'] List: rowValues", robin)
+            self.assertIn("Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToInsert: rowValues", robin)
+
+            # 7. Excel workbook and sheet setup
+            self.assertIn("File.IfFile.Exists File: %excelPath% THEN", robin)
+            self.assertIn("Excel.SetActiveWorksheet.ActivateWorksheetByName", robin)
+            self.assertIn("Excel.WriteToExcel.WriteCell", robin)
+            self.assertIn("Excel.CloseExcel.CloseAndSaveAs", robin)
 
     def test_real_data_employee_onboarding(self):
         pkg_path = "data/EmployeeOnboardingBot.1.0.1 2.nupkg"
