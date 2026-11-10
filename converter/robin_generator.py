@@ -46,13 +46,46 @@ from .expression_parser import (
     clean_uipath_expression
 )
 
+PACKAGE_MAP = {
+    "Assign": ("String", "assign", "assign"),
+    "MultipleAssign": ("String", "assign", "assign"),
+    "Delay": ("Delay", "delay", "delay"),
+    "MessageBox": ("MessageBox", "messageBox", "show message"),
+    "InputDialog": ("Display", "inputDialog", "input dialog"),
+    "HttpClient": ("Web", "invokeWebService", "invoke web service"),
+    "NetHttpRequest": ("Web", "invokeWebService", "invoke web service"),
+    "DeserializeJson": ("Json", "deserializeJson", "convert json to custom object"),
+    "DeserializeJsonArray": ("Json", "deserializeJson", "convert json to custom object"),
+    "BuildDataTable": ("DataTable", "buildDataTable", "create new datatable"),
+    "AddDataRow": ("DataTable", "addDataRow", "add row to datatable"),
+    "If": ("If", "if", "if"),
+    "ForEach": ("Loop", "loop", "loop foreach"),
+    "ExcelApplicationScope": ("Excel", "excelScope", "launch excel"),
+    "OpenBrowser": ("WebAutomation", "openBrowser", "launch chrome"),
+    "Click": ("WebAutomation", "click", "click"),
+    "TypeInto": ("WebAutomation", "typeInto", "populate text field"),
+    "GetValue": ("WebAutomation", "getValue", "get text"),
+    "Comment": ("Comment", "Comment", "comment"),
+    "CommentOut": ("Comment", "Comment", "comment")
+}
+
 class RobinGenerator:
-    def __init__(self, include_comments: bool = True, include_selectors_header: bool = True):
+    def __init__(
+        self,
+        include_comments: bool = True,
+        include_selectors_header: bool = True,
+        include_node_metadata: bool = False
+    ):
         self.include_comments = include_comments
         self.include_selectors_header = include_selectors_header
+        self.include_node_metadata = include_node_metadata
+        self.current_workflow_name = "Workflow"
+        self.node_counter = 1
 
     def generate_for_workflow(self, wf: WorkflowFile, as_subflow: bool = False) -> str:
         """Generate Robin script for a single workflow file."""
+        self.current_workflow_name = re.sub(r'[^a-zA-Z0-9_]', '_', wf.display_name) or "Workflow"
+        self.node_counter = 1
         lines: List[str] = []
         
         # Header comments
@@ -76,6 +109,23 @@ class RobinGenerator:
         if wf.variables:
             action_lines.append("# --- Initialize Variables ---")
             for var in wf.variables:
+                if self.include_node_metadata:
+                    vtype = var.type_name.lower()
+                    if "int" in vtype:
+                        var_pkg = "Number"
+                    elif "bool" in vtype:
+                        var_pkg = "Boolean"
+                    elif "list" in vtype or "array" in vtype:
+                        var_pkg = "List"
+                    elif "datatable" in vtype:
+                        var_pkg = "DataTable"
+                    elif "jobject" in vtype or "customobject" in vtype:
+                        var_pkg = "CustomObject"
+                    else:
+                        var_pkg = "String"
+                    action_lines.append(f"# node_id={self.current_workflow_name} 1.{self.node_counter:05d}; package={var_pkg}; action=assign; resolved=assign")
+                    self.node_counter += 1
+
                 if var.default_value and var.default_value != "{x:Null}":
                     val = convert_uipath_expression_to_robin(var.default_value)
                     action_lines.append(f"SET {var.name} TO {val}")
@@ -109,16 +159,17 @@ class RobinGenerator:
         output_parts: List[str] = []
 
         # 1. Header & Project Info
-        output_parts.append("# ========================================================")
-        output_parts.append(f"# POWER AUTOMATE DESKTOP (ROBIN SCRIPT)")
-        output_parts.append(f"# Project: {project.name}")
-        output_parts.append(f"# Total Workflows: {len(project.workflows)}")
-        output_parts.append(f"# Total Activities: {project.total_activities}")
-        output_parts.append(f"# Conversion Success Rate: {(project.total_mapped / max(1, project.total_activities) * 100):.1f}%")
-        output_parts.append("# Instructions: Copy all text below and paste (Ctrl+V) into")
-        output_parts.append("# Power Automate Desktop flow designer canvas.")
-        output_parts.append("# ========================================================")
-        output_parts.append("")
+        if self.include_comments:
+            output_parts.append("# ========================================================")
+            output_parts.append(f"# POWER AUTOMATE DESKTOP (ROBIN SCRIPT)")
+            output_parts.append(f"# Project: {project.name}")
+            output_parts.append(f"# Total Workflows: {len(project.workflows)}")
+            output_parts.append(f"# Total Activities: {project.total_activities}")
+            output_parts.append(f"# Conversion Success Rate: {(project.total_mapped / max(1, project.total_activities) * 100):.1f}%")
+            output_parts.append("# Instructions: Copy all text below and paste (Ctrl+V) into")
+            output_parts.append("# Power Automate Desktop flow designer canvas.")
+            output_parts.append("# ========================================================")
+            output_parts.append("")
 
         # 2. Control Repository / Selectors
         if self.include_selectors_header and project.all_selectors:
@@ -158,7 +209,15 @@ class RobinGenerator:
             output_parts.append(self.generate_for_workflow(wf, as_subflow=True))
             output_parts.append("")
 
-        return "\n".join(output_parts)
+        return "\n".join([p for p in output_parts if p.strip()]).strip()
+
+    def generate_clean_pasteable_script(self, project: ProjectMetadata) -> str:
+        """
+        Generate a 100% clean, pure PAD Robin script containing ONLY executable actions,
+        strictly compatible with Power Automate Desktop clipboard Ctrl+V parsing.
+        """
+        clean_gen = RobinGenerator(include_comments=False, include_selectors_header=False)
+        return clean_gen.generate_full_project(project)
 
     def _convert_activity(self, activity: ParsedActivity) -> str:
         """Convert a ParsedActivity and its children into Robin script."""
@@ -185,10 +244,10 @@ class RobinGenerator:
                             f"IF {status_var} >= 200 AND {status_var} < 300 THEN\n"
                             f"{indent_lines(msg_code, 1)}\n"
                             f"ELSE\n"
-                            f"    Display.ShowMessage Title: $'''API Error''' "
-                            f"Message: $'''HTTP request failed with status: %{status_var}%\\n%{result_var}%''' "
+                            f"    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
+                            f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
                             f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
-                            f"    FlowControl.StopFlow\n"
+                            f"    FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally\n"
                             f"END"
                         )
                         inner_lines.append(wrapped_block)
@@ -228,6 +287,10 @@ class RobinGenerator:
                 
             res.append("END")
             activity.is_mapped = True
+            if self.include_node_metadata:
+                node_str = f"1.{self.node_counter:05d}"
+                self.node_counter += 1
+                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -267,13 +330,17 @@ class RobinGenerator:
             item_name = "CurrentItem" if tag == "ForEach" else "CurrentRow"
             
             inner_code = "\n".join([self._convert_activity(c) for c in activity.children if self._convert_activity(c)])
-            res = [f"LOOP FOREACH {item_name} IN %{coll_clean}%"]
+            res = [f"LOOP FOREACH {item_name} IN {coll_clean}"]
             if inner_code:
                 res.append(indent_lines(inner_code, 1))
             else:
                 res.append("    # Loop body")
             res.append("END")
             activity.is_mapped = True
+            if self.include_node_metadata:
+                node_str = f"1.{self.node_counter:05d}"
+                self.node_counter += 1
+                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -286,6 +353,10 @@ class RobinGenerator:
                 res.append(indent_lines(inner_code, 1))
             res.append("END")
             activity.is_mapped = True
+            if self.include_node_metadata:
+                node_str = f"1.{self.node_counter:05d}"
+                self.node_counter += 1
+                res.insert(0, f"# node_id={self.current_workflow_name} {node_str}; package=If; action=if; resolved=if")
             activity.robin_code = "\n".join(res)
             return activity.robin_code
 
@@ -383,6 +454,11 @@ class RobinGenerator:
         if tag in mapping_funcs:
             code = mapping_funcs[tag](activity)
             activity.is_mapped = True
+            if self.include_node_metadata and code:
+                pkg, action, resolved = PACKAGE_MAP.get(tag, ("Core", tag, tag.lower()))
+                node_str = f"1.{self.node_counter:05d}"
+                self.node_counter += 1
+                code = f"# node_id={self.current_workflow_name} {node_str}; package={pkg}; action={action}; resolved={resolved}\n{code}"
             activity.robin_code = code
             return code
 

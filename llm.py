@@ -20,35 +20,45 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
 1. CANVAS PASTE FORMAT (NO FUNCTION MAIN):
    - For direct Ctrl+V pasting into the PAD designer canvas, do NOT wrap the main flow in 'FUNCTION Main ... END FUNCTION'. Output top-level bare action lines sequentially.
    - Subflows (if any other than Main exist) may be appended at the bottom using 'FUNCTION SubflowName ... END FUNCTION'.
+   - Do NOT output stray markdown or banner blocks like '# =======...'.
 
 2. EXACT NATIVE PAD ACTION IDENTIFIERS:
-   - Web service: Web.InvokeWebService.InvokeWebService Url: $'''...''' Method: Web.Method.Get ...
-   - Messages: Display.ShowMessage Title: $'''...''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+   - Web service: Web.InvokeWebService.InvokeWebService Url: $'''...''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
+   - Messages: Display.ShowMessageDialog.ShowMessage Title: $'''...''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
    - Inputs: Display.InputDialog Title: $'''...''' Message: $'''...''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> VarName ButtonPressed=> ButtonPressed
-   - Stop execution on critical failure: FlowControl.StopFlow
+   - Delays: Wait Delay: 2 (delay in seconds, never WAIT TODO_DURATION)
+   - Stop execution on critical failure: FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally
+   - Create DataTable: Variables.CreateNewDatatable InputTable: { ^['Col1', 'Col2'] } DataTable=> dtPosts
+   - Insert DataRow: Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToAdd: [CurrentItem['col1'], CurrentItem['col2']]
+   - Folder paths: Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
 
-3. VARIABLE INITIALIZATION (NO .NET SYNTAX):
-   - NEVER use .NET constructors like '%new JObject()%', '%New JArray()%', '%new List()%'.
+3. SINGLE LINE PER ACTION & NEWLINES:
+   - Every action statement MUST be strictly on a SINGLE CONTIGUOUS LINE.
+   - Never insert a physical line break inside an action or inside a string parameter. For newlines in dialogs, use '\\r\\n' escape characters.
+
+4. CONTROL FLOW & COMPLETE BLOCKS:
+   - Every IF statement MUST have a matching END statement (IF ... THEN ... ELSE ... END).
+   - Every LOOP statement MUST have a matching END statement.
+
+5. VARIABLE SYNTAX:
+   - PAD variables use percent signs: %VariableName% (NEVER Automation Anywhere $Var$ or .NET constructors).
+   - Set variables using: SET VarName TO Value.
    - Initialize JSON objects: Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj
    - Initialize lists/arrays: Variables.CreateNewList List=> jsonArray
    - Initialize strings: SET VarName TO $''''''
 
-4. FORM & USER INPUTS:
-   - When a UiPath workflow uses forms (<ufa:ShowFormActivity>) or input arguments, ALWAYS generate `Display.InputDialog` for each field (e.g. newPostTitle, newPostDesc, postId, delPostId) so that variables are populated before being sent in POST/PUT request bodies!
-   - Example: Display.InputDialog Title: $'''Enter postTitle''' Message: $'''Please enter value for postTitle:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostTitle ButtonPressed=> ButtonPressed
-
-5. REST APIS & CRITICAL ERROR HANDLING:
+6. REST APIS & CRITICAL ERROR HANDLING:
    - Extract URLs from EndPoint or RequestUrl (e.g. Url: $'''https://jsonplaceholder.typicode.com/posts/%delPostId%''').
    - Method accuracy: When updating an existing post with a JSON request body, use Method: Web.Method.Put (never GET). For deleting, use Web.Method.Delete. For creating, use Web.Method.Post.
    - Response validation & Stop flow on critical errors:
      IF responseStatus < 200 OR responseStatus >= 300 THEN
-         Display.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus%\\n%responseString%''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-         FlowControl.StopFlow
+         Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus%\\r\\n%responseString%''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+         FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally
      END
 
-6. EXCEL WORKBOOK & WORKSHEET SETUP:
+7. EXCEL WORKBOOK & WORKSHEET SETUP:
    - Ensure the workbook file exists or create a blank one:
-     File.IfFile.Exists File: %excelPath% THEN
+     IF (File.IfFile.Exists File: %excelPath%) THEN
          Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: %excelPath% Visible: True ReadOnly: False Instance=> ExcelInstance
      ELSE
          Excel.LaunchExcel.LaunchBlank Visible: True Instance=> ExcelInstance
@@ -56,13 +66,9 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
    - Explicitly activate the worksheet: Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''Sheet1'''
    - Write headers and rows, then save and close:
      Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: %excelPath%
-
-7. GENERAL SYNTAX:
-   - Never output '{x:Null}'. Output $'''''' for empty/null strings.
-   - Provide the response strictly as valid JSON or as a JSON code block.
 """
 
-def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]) -> Dict[str, Any]:
+def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str], include_node_metadata: bool = False) -> Dict[str, Any]:
     """
     Converts UiPath XML context and DLLs into a PAD Robin script and summary
     using either Google Gemini or OpenAI LLMs (with fallback to local AST engine).
@@ -85,7 +91,8 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
             gemini_model_name = clean_model if "gemini" in clean_model.lower() else "gemini-2.5-flash"
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model_name}:generateContent?key={api_key}"
             
-            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format."
+            metadata_instruction = " Please prepend each converted action with a node metadata comment: '# node_id=<Flow> <id>; package=<Package>; action=<Action>; resolved=<Resolved>'." if include_node_metadata else ""
+            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
             
             payload = {
                 "contents": [
@@ -123,7 +130,8 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
-            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format."
+            metadata_instruction = " Please prepend each converted action with a node metadata comment: '# node_id=<Flow> <id>; package=<Package>; action=<Action>; resolved=<Resolved>'." if include_node_metadata else ""
+            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
             
             payload = {
                 "model": clean_model,
@@ -174,6 +182,7 @@ def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str]
     # 4. Fallback / Augment with Local Deterministic Engine if LLM failed or didn't return robin_script
     if not robin_script:
         pm = ProjectManager(include_comments=True, include_selectors_header=True)
+        pm.generator.include_node_metadata = include_node_metadata
         # Parse from context or extract
         local_robin = ""
         try:

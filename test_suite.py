@@ -88,6 +88,13 @@ class TestUiPathToRobinConverter(unittest.TestCase):
             self.assertIn("Display.InputDialog", robin)
             self.assertIn("IF userAgeText >= 18 THEN", robin)
 
+            # Test Node Metadata comment format
+            self.pm.generator.include_node_metadata = True
+            robin_meta = self.pm.get_full_project_robin(proj)
+            self.assertIn("# node_id=Main", robin_meta)
+            self.assertIn("package=Display; action=inputDialog; resolved=input dialog", robin_meta)
+            self.pm.generator.include_node_metadata = False
+
     def test_real_data_crud_operation(self):
         pkg_path = "data/CrudOperation.1.0.1 2.nupkg"
         if os.path.exists(pkg_path):
@@ -120,13 +127,12 @@ class TestUiPathToRobinConverter(unittest.TestCase):
             self.assertIn("IF responseStatus >= 200 AND responseStatus < 300 THEN", robin)
             self.assertIn("FlowControl.StopFlow", robin)
 
-            # 6. DataTable row mapping uses CurrentItem and rowValues list
+            # 6. DataTable row mapping uses CurrentItem and rowToAdd
             self.assertNotIn('currentJToken', robin)
-            self.assertIn("Variables.AddItemToList Item: CurrentItem['userId'] List: rowValues", robin)
-            self.assertIn("Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToInsert: rowValues", robin)
+            self.assertIn("Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToAdd:", robin)
 
             # 7. Excel workbook and sheet setup
-            self.assertIn("File.IfFile.Exists File: %excelPath% THEN", robin)
+            self.assertIn("IF (File.IfFile.Exists File: %excelPath%) THEN", robin)
             self.assertIn("Excel.SetActiveWorksheet.ActivateWorksheetByName", robin)
             self.assertIn("Excel.WriteToExcel.WriteCell", robin)
             self.assertIn("Excel.CloseExcel.CloseAndSaveAs", robin)

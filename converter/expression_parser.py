@@ -127,7 +127,7 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
     m_path = re.search(r'Path\.Combine\s*\([^,]+,\s*"([^"]+)"\)', clean_expr_str, re.DOTALL)
     if m_path:
         fname = m_path.group(1)
-        return f"$'''%SpecialFolder.DesktopDirectory%\\{fname}'''"
+        return f"$'''%SpecialFolderPath%\\{fname}'''"
 
     # 3. Check for VB array literal { ... } (e.g. AddDataRow ArrayRow)
     if clean_expr_str.startswith('{') and clean_expr_str.endswith('}'):
@@ -150,7 +150,11 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
     if clean_expr_str.startswith('"') and clean_expr_str.endswith('"') and len(clean_expr_str) >= 2:
         if not has_unquoted_operator(clean_expr_str):
             inner = clean_expr_str[1:-1].replace('""', '"')
-            return f"$'''{inner}'''"
+            if inner.strip().startswith('{') and inner.strip().endswith('}'):
+                inner_collapsed = re.sub(r'[\r\n]+', '', inner)
+            else:
+                inner_collapsed = inner.replace('\r\n', '\\r\\n').replace('\n', '\\r\\n')
+            return f"$'''{inner_collapsed}'''"
 
     # Pre-clean common VB.NET idioms
     # Replace escaped quotes in VB: "" -> "
@@ -185,7 +189,7 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
             for p in parts:
                 p_strip = p.strip()
                 if p_strip in ["vbCrLf", "Environment.NewLine"]:
-                    text_builder.append("\n")
+                    text_builder.append("\\r\\n")
                 elif p_strip.startswith('"') and p_strip.endswith('"'):
                     text_builder.append(p_strip[1:-1].replace('""', '"'))
                 elif re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', p_strip):
@@ -210,7 +214,7 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
                     break
                     
             if is_all_text_and_vars:
-                combined = "".join(text_builder)
+                combined = "".join(text_builder).replace("\r\n", "\\r\\n").replace("\n", "\\r\\n")
                 return f"$'''{combined}'''"
 
     # Arithmetic expression: rowCount + 1, x - 5, count * 2

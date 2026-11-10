@@ -54,6 +54,14 @@ with st.sidebar:
         help="Select which AI model will generate the Robin script."
     )
 
+    st.markdown("---")
+    st.subheader("⚙️ Output Options")
+    include_node_metadata = st.checkbox(
+        "Include Node Metadata (# node_id=...)",
+        value=False,
+        help="Prepend each action with a comment indicating node_id, package, action, and resolved mapping."
+    )
+
     if api_key:
         st.success(f"✅ Key Configured! Model: **{model}**")
     else:
@@ -273,7 +281,8 @@ if uploaded is not None:
                     api_key,
                     model,
                     xml_context,
-                    dlls
+                    dlls,
+                    include_node_metadata=include_node_metadata
                 )
 
             # ==================================================
@@ -318,13 +327,22 @@ if uploaded is not None:
                 "Generated Robin Script"
             )
 
+            st.info(
+                "💡 **How to Paste into Power Automate Desktop (PAD):**\n"
+                "1. Click the **Copy** icon in the top right corner of the code box below.\n"
+                "2. Open Power Automate Desktop and create a new desktop flow.\n"
+                "3. Click anywhere on the central flow designer canvas (the main workspace).\n"
+                "4. Press **Ctrl + V** on your keyboard.\n"
+                "5. All actions will instantly convert into native Power Automate visual action cards!"
+            )
+
             st.code(
                 robin_script,
                 language="text"
             )
 
             st.download_button(
-                label="Download Robin Script",
+                label="Download Robin Script (.txt)",
                 data=robin_script.encode(
                     "utf-8"
                 ),

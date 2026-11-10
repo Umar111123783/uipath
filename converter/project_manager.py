@@ -118,3 +118,7 @@ class ProjectManager:
         """Get the combined PAD script with all subflows."""
         return self.generator.generate_full_project(project)
 
+    def get_clean_pasteable_robin(self, project: ProjectMetadata) -> str:
+        """Get the clean, guaranteed canvas pasteable PAD script (no headers, pure actions)."""
+        return self.generator.generate_clean_pasteable_script(project)
+

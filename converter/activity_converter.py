@@ -49,6 +49,16 @@ def convert_assign(activity: ParsedActivity) -> str:
     if re.match(r'^new\s+(?:jarray|list\b)(\(\))?$', val_clean, re.IGNORECASE):
         return f"Variables.CreateNewList List=> {to_var}"
 
+    # Check for Path.Combine(...) with Desktop special folder
+    m_path = re.search(r'Path\.Combine\s*\([^,]+,\s*"([^"]+)"\)', val_clean, re.DOTALL)
+    if m_path:
+        fname = m_path.group(1)
+        lines = [
+            "Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath",
+            f"SET {to_var} TO $'''%SpecialFolderPath%\\{fname}'''"
+        ]
+        return "\n".join(lines)
+
     robin_val = convert_uipath_expression_to_robin(val)
     return f"SET {to_var} TO {robin_val}"
 
@@ -65,8 +75,13 @@ def convert_message_box(activity: ParsedActivity) -> str:
     text = str(get_prop(activity, "Text", "Hello"))
     robin_caption = convert_uipath_expression_to_robin(caption)
     robin_text = convert_uipath_expression_to_robin(text)
+    
+    # Ensure message content stays on a single line so PAD clipboard parser does not break
+    robin_text = robin_text.replace("\r\n", "\\r\\n").replace("\n", "\\r\\n")
+    robin_caption = robin_caption.replace("\r\n", "\\r\\n").replace("\n", "\\r\\n")
+
     return (
-        f"Display.ShowMessage Title: {robin_caption} "
+        f"Display.ShowMessageDialog.ShowMessage Title: {robin_caption} "
         f"Message: {robin_text} Icon: Display.Icon.None Buttons: Display.Buttons.OK "
         f"DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed"
     )
@@ -134,16 +149,17 @@ def convert_http_client(activity: ParsedActivity, include_status_check: bool = T
         f"Web.InvokeWebService.InvokeWebService Url: {robin_url} Method: {pad_method} "
         f"Accept: $'''application/json''' ContentType: $'''application/json'''{body_arg} "
         f"ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True "
-        f"StatusCode=> {status_var} ResponseHeaders=> ResponseHeaders Response=> {result_var}"
+        f"UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False "
+        f"ResponseHeaders=> ResponseHeaders Response=> {result_var} StatusCode=> {status_var}"
     )
 
     if include_status_check:
         status_check = (
             f"\nIF {status_var} < 200 OR {status_var} >= 300 THEN\n"
-            f"    Display.ShowMessage Title: $'''API Error''' "
-            f"Message: $'''HTTP request failed with status: %{status_var}%\\n%{result_var}%''' "
+            f"    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
+            f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
             f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
-            f"    FlowControl.StopFlow\n"
+            f"    FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally\n"
             f"END"
         )
         return invoke_code + status_check
@@ -159,7 +175,17 @@ def convert_deserialize_json(activity: ParsedActivity) -> str:
 
 def convert_build_data_table(activity: ParsedActivity) -> str:
     dt = re.sub(r'[\[\]]', '', str(get_prop(activity, "DataTable", "DataTable"))).strip() or "DataTable"
-    return f"Variables.CreateNewDatatable Columns: 4 Rows: 0 DataTable=> {dt}"
+    table_info = str(get_prop(activity, "TableInfo", ""))
+    cols = []
+    if table_info:
+        raw_cols = re.findall(r'<xs:element\s+name="([^"]+)"', table_info)
+        cols = [c for c in raw_cols if c not in ["NewDataSet", "TableName"]]
+        
+    if cols:
+        cols_str = ", ".join([f"'{c}'" for c in cols])
+        return f"Variables.CreateNewDatatable InputTable: {{ ^[{cols_str}] }} DataTable=> {dt}"
+        
+    return f"Variables.CreateNewDatatable InputTable: {{ ^['Column1', 'Column2', 'Column3', 'Column4'] }} DataTable=> {dt}"
 
 def convert_add_data_row(activity: ParsedActivity) -> str:
     dt = re.sub(r'[\[\]]', '', str(get_prop(activity, "DataTable", "DataTable"))).strip() or "DataTable"
@@ -171,16 +197,11 @@ def convert_add_data_row(activity: ParsedActivity) -> str:
         keys = re.findall(r"CurrentItem\['([^']+)'\]", arr)
         
     if keys:
-        lines = [
-            "Variables.CreateNewList List=> rowValues"
-        ]
-        for k in keys:
-            lines.append(f"Variables.AddItemToList Item: CurrentItem['{k}'] List: rowValues")
-        lines.append(f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToInsert: rowValues")
-        return "\n".join(lines)
+        items_str = ", ".join([f"CurrentItem['{k}']" for k in keys])
+        return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToAdd: [{items_str}]"
         
     robin_arr = convert_uipath_expression_to_robin(arr) if arr else "[CurrentItem]"
-    return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToInsert: {robin_arr}"
+    return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToAdd: {robin_arr}"
 
 def convert_open_browser(activity: ParsedActivity, inner_code: str) -> str:
     browser_type = str(get_prop(activity, "BrowserType", "Chrome")).lower()
@@ -257,7 +278,7 @@ def convert_excel_scope(activity: ParsedActivity, inner_code: str) -> str:
     path = str(get_prop(activity, "WorkbookPath", "Data.xlsx"))
     robin_path = convert_uipath_expression_to_robin(path)
     lines = [
-        f"File.IfFile.Exists File: {robin_path} THEN",
+        f"IF (File.IfFile.Exists File: {robin_path}) THEN",
         f"    Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: {robin_path} Visible: True ReadOnly: False Instance=> ExcelInstance",
         f"ELSE",
         f"    Excel.LaunchExcel.LaunchBlank Visible: True Instance=> ExcelInstance",
@@ -379,7 +400,7 @@ def convert_show_form(activity: ParsedActivity) -> str:
         
     disp = str(get_prop(activity, "DisplayName", "Show Form"))
     return (
-        f"Display.ShowMessage Title: $'''{disp}''' "
+        f"Display.ShowMessageDialog.ShowMessage Title: $'''{disp}''' "
         f"Message: $'''UiPath Form execution completed.''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed"
     )
 
