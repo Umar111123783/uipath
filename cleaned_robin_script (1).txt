@@ -1,61 +1,17 @@
-can see why that script pastes successfully while the other one doesn't.
-
-The script that works uses the Robin/PAD script format:
-
-Plain Text
 # node_id=Excel_FileCleanup_Tracker.00001.a7d33ed8; package=String; action=assign; resolved=assign
 SET FolderPath TO $'''C:\\Users\\mkoppadi001\\Downloads\\AA Training'''
 
-PAD/Robin recognizes:
+# node_id=Excel_FileCleanup_Tracker.00002.e5dd965e; package=File; action=assign; resolved=assign
+SET ExcelFilePath1 TO $'''%FolderPath%\\FileCleanupPlan.xlsx'''
 
-# node_id=...
-package=...
-action=...
-SET ... TO ...
+# node_id=Excel_FileCleanup_Tracker.00005.02c2a835; package=String; action=assign; resolved=assign
+SET Extension TO Brecord['Extension']
 
-Those are Robin script commands.
+# node_id=Excel_FileCleanup_Tracker.00006.f5c9ed7b; package=String; action=assign; resolved=assign
+SET FileName TO Brecord['FileName']
 
-Your non-working script contains:
+# node_id=Excel_FileCleanup_Tracker.00007.1e71e390; package=String; action=assign; resolved=assign
+SET ActionType TO Brecord['Action']
 
-Plain Text
-Variables.ConvertJsonToCustomObject ...
-Web.InvokeWebService.InvokeWebService ...
-Display.ShowMessageDialog.ShowMessage ...
- 
-
-Those are PAD action definitions, not Robin script syntax.
-
-Conclusion
-
-✅ This format is pasteable where you're pasting:
-
-Plain Text
-# node_id=...
-SET Variable TO ...
-
-❌ This format is NOT pasteable there:
-
-Plain Text
-Variables.ConvertJsonToCustomObject ...
-Web.InvokeWebService.InvokeWebService ...
-
-because it is not Robin script.
-
-What this means
-
-If you're using an LLM to generate PAD flows for that editor, it must generate Robin syntax like:
-
-Plain Text
-# node_id=<id>; package=String; action=assign; resolved=assign
-SET ApiUrl TO $'''https://jsonplaceholder.typicode.com/posts'''
-
-and not:
-
-Plain Text
-Web.InvokeWebService.InvokeWebService Url: ...
-
-The generator is producing the wrong format for your target paste area.
-
-Based on the working example, your target expects Robin Script (SET, IF, FOREACH, FUNCTION, etc.) with # node_id metadata, not PAD action-definition syntax.
-
-So the answer is: the script is not pasteable because it is in PAD action format, while your editor accepts Robin Script format.
+# node_id=Excel_FileCleanup_Tracker.00008.77584980; package=String; action=assign; resolved=assign
+SET Status TO Brecord['Status']
