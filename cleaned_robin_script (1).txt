@@ -1,123 +1,22 @@
-This script is NOT pasteable in PAD/Robin as posted.
-
-I can immediately see HTML corruption:
-
-Problems
-1. HTML line breaks
-
-You have:
-
-Plain Text
-<br>
-
-between actions.
-
-These must be removed completely.
-
-2. HTML entities
-
-You have:
-
-Plain Text
-UserInput=&gt; userAgeText
-ButtonPressed=&gt; ButtonPressed
-Number=&gt; userAgeText_Num
-IF userAgeText_Num &gt;= 18 THEN
-
-They must become:
-
-Plain Text
-UserInput=> userAgeText
-ButtonPressed=> ButtonPressed
-Number=> userAgeText_Num
-IF userAgeText_Num >= 18 THEN
-Clean Version
-Plain Text
 # node_id=AgeChecker.00001.6f7adcb0; package=String; action=assign; resolved=assign
 SET userAgeText TO $''''''
- 
+
 # node_id=AgeChecker.00002.a1cd9c7a; package=Display; action=inputDialog; resolved=input dialog
 Display.InputDialog Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed
- 
+
 # node_id=AgeChecker.00003.b953acdd; package=If; action=if; resolved=if
 IF ButtonPressed = $'''OK''' THEN
- 
-# node_id=AgeChecker.00004.3e4589e5; package=Text; action=toNumber; resolved=convert text to number
-Text.ToNumber Text: userAgeText Number=> userAgeText_Num
- 
-# node_id=AgeChecker.00005.4091e869; package=If; action=if; resolved=if
-IF userAgeText_Num >= 18 THEN
- 
-# node_id=AgeChecker.00006.f7ead4ff; package=MessageBox; action=messageBox; resolved=show message
-Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
- 
-# node_id=AgeChecker.00007.40c91e7e; package=If; action=else; resolved=else
-ELSE
- 
-# node_id=AgeChecker.00008.52862722; package=MessageBox; action=messageBox; resolved=show message
-Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
- 
+    # node_id=AgeChecker.00004.3e4589e5; package=Text; action=toNumber; resolved=convert text to number
+    Text.ToNumber Text: userAgeText Number=> userAgeText_Num
+
+    # node_id=AgeChecker.00005.4091e869; package=If; action=if; resolved=if
+    IF userAgeText_Num >= 18 THEN
+        # node_id=AgeChecker.00006.f7ead4ff; package=MessageBox; action=messageBox; resolved=show message
+        Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+
+    # node_id=AgeChecker.00007.40c91e7e; package=If; action=else; resolved=else
+    ELSE
+        # node_id=AgeChecker.00008.52862722; package=MessageBox; action=messageBox; resolved=show message
+        Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+    END
 END
-END
-Verdict
-
-❌ Your posted version: Not pasteable
-
-Contains <br>
-Contains &gt;
-
-✅ Cleaned version above: Looks pasteable in the same Robin/PAD editor that accepted your SET FolderPath TO ... script.
-
-For future checks, if you see <br>, &gt;, &lt;, <a href>, or </a>, the script has been HTML-corrupted and usually won't paste correctly into PAD.
-
-where is <br>
-
-The <br> tags are visible in the version you pasted earlier. For example:
-
-Plain Text
-SET userAgeText TO $''''''
-<br>
-# node_id=AgeChecker.00002.a1cd9c7a
-
-and:
-
-Plain Text
-Number=> userAgeText_Num
-<br>
-# node_id=AgeChecker.00005.4091e869
-
-and:
-
-Plain Text
-ButtonPressed=> ButtonPressed
-<br>
-# node_id=AgeChecker.00007.40c91e7e
-
-If you copied directly from the message you posted, those <br> entries are present between actions.
-
-Also, your script contains these HTML entities:
-
-Plain Text
-UserInput=&gt; userAgeText
-ButtonPressed=&gt; ButtonPressed
-Number=&gt; userAgeText_Num
-IF userAgeText_Num &gt;= 18 THEN
-
-which should be:
-
-Plain Text
-UserInput=> userAgeText
-ButtonPressed=> ButtonPressed
-Number=> userAgeText_Num
-IF userAgeText_Num >= 18 THEN
-
-If you are looking at the raw text in PAD and do not see any literal <br> strings, then those tags were likely added by the chat renderer when the script was displayed here.
-
-The quickest test is:
-
-Search the script for &gt;
-Search the script for &lt;
-Search the script for <a
-Search the script for <br
-
-If none are found, then the next issue is not HTML corruption but whether the generated action syntax matches the exact Robin/PAD clipboard format expected by your paste target.
