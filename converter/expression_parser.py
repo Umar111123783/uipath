@@ -117,11 +117,13 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
 
     clean_expr_str = expr.strip()
 
-    # 1. Check for .NET instantiations: new JObject(), New JArray(), New List(...)
+    # 1. Check for .NET instantiations: new JObject(), New JArray(), New List(...), New DataTable()
     if re.match(r'^new\s+jobject(\(\))?$', clean_expr_str, re.IGNORECASE):
         return "$'''{}'''"
     if re.match(r'^new\s+(?:jarray|list\b)(\(\))?$', clean_expr_str, re.IGNORECASE):
         return "[]"
+    if re.match(r'^new\s+(?:system\.data\.)?datatable(\(\))?$', clean_expr_str, re.IGNORECASE):
+        return "$''''''"
 
     # 2. Check for Path.Combine(...)
     m_path = re.search(r'Path\.Combine\s*\([^,]+,\s*"([^"]+)"\)', clean_expr_str, re.DOTALL)
@@ -138,10 +140,10 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
             m_tok = re.match(r'^([a-zA-Z0-9_]+)\("([^"]+)"\)(?:\.ToString(?:\(\))?)?$', item)
             if m_tok:
                 tok_obj = "CurrentItem" if m_tok.group(1) == "currentJToken" else m_tok.group(1)
-                robin_items.append(f"CurrentItem['{m_tok.group(2)}']")
+                robin_items.append(f"{tok_obj}['{m_tok.group(2)}']")
             elif item.endswith(".ToString") or item.endswith(".ToString()"):
                 v = re.sub(r'\.ToString(?:\(\))?$', '', item).strip()
-                robin_items.append(f"%{v}%")
+                robin_items.append(v)
             else:
                 robin_items.append(item)
         return "[" + ", ".join(robin_items) + "]"
@@ -167,9 +169,9 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
         replaced = re.sub(r'\{([a-zA-Z0-9_]+)\}', r'%\1%', content)
         return f"$'''{replaced}'''"
 
-    # Check if simple variable identifier: e.g. [searchQuery]
+    # Check if simple variable identifier: e.g. [searchQuery] -> bare variable name in Robin expressions
     if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr):
-        return f"%{expr}%"
+        return expr
 
     # Token access like jsonObj("title").ToString or currentJToken("body").ToString
     token_match = re.match(r'^([a-zA-Z0-9_]+)\("([^"]+)"\)(?:\.ToString(?:\(\))?)?$', expr)
@@ -177,8 +179,8 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
         var_obj = token_match.group(1)
         var_key = token_match.group(2)
         if var_obj == "currentJToken":
-            return f"%CurrentItem['{var_key}']%"
-        return f"%{var_obj}['{var_key}']%"
+            return f"CurrentItem['{var_key}']"
+        return f"{var_obj}['{var_key}']"
 
     # Check if string concatenation: "prefix " + var + " suffix" or & in VB
     if has_unquoted_operator(clean_expr_str):
@@ -217,12 +219,12 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
                 combined = "".join(text_builder).replace("\r\n", "\\r\\n").replace("\n", "\\r\\n")
                 return f"$'''{combined}'''"
 
-    # Arithmetic expression: rowCount + 1, x - 5, count * 2
+    # Arithmetic/property expression: rowCount + 1, x - 5, count * 2, jsonArray.Count
     if re.match(r'^[a-zA-Z0-9_\s\+\-\*\/\(\)\.]+$', expr) and not any(k in expr for k in ["new ", "New "]):
-        return f"%{expr}%"
+        return expr
 
-    # For general expressions, wrap in %...% for PAD
-    return f"%{expr}%"
+    # General expression outside string quotes stays bare (never wrapped in %...%)
+    return expr
 
 _NUMERIC_CAST_RE = re.compile(
     r'\b(?:CInt|CLng|CSng|CDbl|Convert\.ToInt32|Convert\.ToInt64|Convert\.ToDouble|Convert\.ToDecimal|Int32\.Parse|Double\.Parse|Decimal\.Parse)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)',

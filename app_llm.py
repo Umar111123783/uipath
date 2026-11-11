@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 import streamlit as st
 
-from llm import convert_to_robin
+from llm import PROVIDER_PRESETS, convert_to_robin, is_local_endpoint
 from parser import (
     extract_zip,
     build_xml_context,
@@ -24,8 +24,29 @@ st.set_page_config(
 
 st.title("🧠 UiPath XAML → PAD Robin Converter (Pure LLM Engine)")
 st.caption(
-    "Direct AI-powered RPA migration using Google Gemini and OpenAI models. No local Python AST conversion."
+    "Direct AI-powered RPA migration using any Gemini, OpenAI, or OpenAI-compatible endpoint. No local Python AST conversion."
 )
+
+default_preset = PROVIDER_PRESETS["Google Gemini"]
+if "llm_preset" not in st.session_state:
+    st.session_state["llm_preset"] = "Google Gemini"
+if "llm_endpoint" not in st.session_state:
+    st.session_state["llm_endpoint"] = os.environ.get("LLM_ENDPOINT", default_preset["endpoint"])
+if "llm_model" not in st.session_state:
+    st.session_state["llm_model"] = os.environ.get("LLM_MODEL", default_preset["model"])
+if "llm_api_key" not in st.session_state:
+    st.session_state["llm_api_key"] = (
+        os.environ.get("LLM_API_KEY", "")
+        or os.environ.get("GEMINI_API_KEY", "")
+        or os.environ.get("OPENAI_API_KEY", "")
+    )
+
+
+def _apply_provider_preset() -> None:
+    """Update endpoint and model fields when the user picks a provider preset."""
+    preset = PROVIDER_PRESETS.get(st.session_state.get("llm_preset", ""), {})
+    st.session_state["llm_endpoint"] = preset.get("endpoint", "")
+    st.session_state["llm_model"] = preset.get("model", "")
 
 
 def execute_pure_llm(
@@ -35,6 +56,7 @@ def execute_pure_llm(
     dlls: List[str],
     include_node_metadata: bool = False,
     temperature: float = 0.1,
+    endpoint: str = "",
 ) -> Dict[str, Any]:
     """Execute conversion strictly through the LLM module with no local Python AST fallback."""
     return convert_to_robin(
@@ -44,6 +66,36 @@ def execute_pure_llm(
         dlls=dlls,
         temperature=temperature,
         include_node_metadata=include_node_metadata,
+        endpoint=endpoint,
+    )
+
+
+# ==================================================
+# Main LLM Endpoint, Model & API Key Form
+# ==================================================
+st.subheader("🔑 LLM Configuration")
+col_ep, col_model, col_key = st.columns([2.2, 1.3, 1.5])
+with col_ep:
+    endpoint = st.text_input(
+        "Endpoint",
+        key="llm_endpoint",
+        placeholder="https://api.openai.com/v1/chat/completions",
+        help="Enter a Google Gemini, OpenAI, Azure OpenAI, OpenRouter, Ollama, or custom OpenAI-compatible URL.",
+    )
+with col_model:
+    model = st.text_input(
+        "Model",
+        key="llm_model",
+        placeholder="e.g. gemini-2.0-flash, gpt-4o-mini, llama3.1",
+        help="Enter the model or Azure deployment name to run on the configured endpoint.",
+    )
+with col_key:
+    api_key = st.text_input(
+        "API Key",
+        type="password",
+        key="llm_api_key",
+        placeholder="Paste your API Key (optional for localhost)...",
+        help="Authentication key sent to your selected endpoint.",
     )
 
 
@@ -51,28 +103,14 @@ def execute_pure_llm(
 # Sidebar Controls
 # ==================================================
 with st.sidebar:
-    st.header("🔑 LLM Settings")
+    st.header("⚙️ LLM Settings")
 
-    api_key = st.text_input(
-        "API Key",
-        type="password",
-        value=os.environ.get("GEMINI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", ""),
-        placeholder="Paste your Gemini or OpenAI API Key...",
-        help="Enter your Google Gemini API Key or OpenAI API Key.",
-    )
-
-    model = st.selectbox(
-        "Select Model",
-        [
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
-            "gemini-3.8-flash",
-            "openai.gpt-4o-mini",
-            "openai.gpt-4o",
-        ],
-        index=0,
-        help="Select which AI model will generate the Robin script.",
+    st.selectbox(
+        "Provider Preset",
+        list(PROVIDER_PRESETS.keys()),
+        key="llm_preset",
+        on_change=_apply_provider_preset,
+        help="Quickly pre-fill Endpoint and Model, or switch to Custom to type any values in the main form.",
     )
 
     temperature = st.slider(
@@ -85,7 +123,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    st.subheader("⚙️ Output Format")
+    st.subheader("🧾 Output Format")
     include_node_metadata = st.checkbox(
         "Include # node_id metadata lines",
         value=True,
@@ -93,10 +131,11 @@ with st.sidebar:
     )
     st.markdown("---")
 
-    if api_key:
-        st.success(f"✅ Key Configured! Target: **{model}**")
+    has_key_or_local = bool(api_key.strip()) or (bool(endpoint.strip()) and is_local_endpoint(endpoint))
+    if endpoint.strip() and model.strip() and has_key_or_local:
+        st.success(f"✅ Configured\n\n**Model:** `{model.strip()}`\n\n**Endpoint:** `{endpoint.strip()}`")
     else:
-        st.warning("⚠️ Enter your API Key to enable pure LLM conversion.")
+        st.warning("⚠️ Enter Endpoint, Model, and API Key (optional for localhost) to convert.")
 
 # ==================================================
 # Upload & Conversion
@@ -132,8 +171,14 @@ if uploaded is not None:
         # Generate Button
         # ==================================================
         if st.button("🚀 Generate with LLM (Pure AI)", type="primary", use_container_width=True):
-            if not api_key:
-                st.error("🔑 Please enter your API Key in the sidebar before generating.")
+            if not endpoint.strip():
+                st.error("🔗 Please enter an Endpoint URL before generating.")
+                st.stop()
+            if not model.strip():
+                st.error("🤖 Please enter a Model name before generating.")
+                st.stop()
+            if not api_key.strip() and not is_local_endpoint(endpoint):
+                st.error("🔑 Please enter your API Key before generating.")
                 st.stop()
 
             with st.spinner("Building project context for LLM..."):
@@ -148,12 +193,13 @@ if uploaded is not None:
                     dlls=dlls,
                     include_node_metadata=include_node_metadata,
                     temperature=temperature,
+                    endpoint=endpoint,
                 )
 
             if not result.get("success"):
                 st.error(f"❌ **LLM Conversion Failed:**\n\n{result.get('error')}")
                 st.info(
-                    "💡 Pure LLM mode does not perform local Python fallback. Check your API key, model selection, or server status."
+                    "💡 Pure LLM mode does not perform local Python fallback. Check your endpoint, model name, API key, or server status."
                 )
                 if result.get("raw_response"):
                     with st.expander("🔍 Raw Server Response"):
@@ -161,7 +207,8 @@ if uploaded is not None:
                 st.stop()
 
             used_m = result.get("model_used", model)
-            st.success(f"🤖 **Generated Exclusively by AI Model (`{used_m}`)**")
+            used_ep = result.get("endpoint_used", endpoint)
+            st.success(f"🤖 **Generated Exclusively by AI Model (`{used_m}`)** via `{used_ep}`")
 
             st.subheader("📋 Business Summary")
             st.write(result.get("summary", "No summary generated."))

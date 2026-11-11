@@ -3,7 +3,9 @@ import json
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
+import glob
 import os
+import re
 import llm
 from converter.project_manager import ProjectManager
 from converter.selector_parser import build_parsed_selector
@@ -15,7 +17,7 @@ from converter.expression_parser import (
     convert_uipath_condition_with_casts,
     parse_uipath_duration
 )
-from parser import sanitize_robin_script
+from parser import apply_robin_node_metadata, sanitize_robin_script
 
 class TestUiPathToRobinConverter(unittest.TestCase):
 
@@ -29,11 +31,13 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertEqual(parse_uipath_duration("5"), 5.0)
 
         # Variables & Literals
-        self.assertEqual(convert_uipath_expression_to_robin("[myVar]"), "%myVar%")
+        self.assertEqual(convert_uipath_expression_to_robin("[myVar]"), "myVar")
         self.assertEqual(convert_uipath_expression_to_robin("[\"Hello World\"]"), "$'''Hello World'''")
         self.assertEqual(convert_uipath_expression_to_robin("Hello World"), "$'''Hello World'''")
         self.assertEqual(convert_uipath_expression_to_robin("https://www.google.com"), "$'''https://www.google.com'''")
-        self.assertEqual(convert_uipath_expression_to_robin("[count + 1]"), "%count + 1%")
+        self.assertEqual(convert_uipath_expression_to_robin("[count + 1]"), "count + 1")
+        self.assertEqual(convert_uipath_expression_to_robin('[jsonObj("title").ToString]'), "jsonObj['title']")
+        self.assertEqual(convert_uipath_expression_to_robin("[New System.Data.DataTable()]"), "$''''''")
         self.assertEqual(convert_uipath_expression_to_robin("[\"User: \" + username]"), "$'''User: %username%'''")
 
         # Conditions
@@ -62,6 +66,8 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertIn("WebAutomation.FormFilling.PopulateTextField.Populate", robin)
         self.assertIn("FUNCTION Main", robin)
         self.assertIn("FUNCTION LogResults", robin)
+        self.assertIn("CALL LogResults", robin)
+        self.assertNotIn("Flow.RunFlow", robin)
 
     def test_sample_excel_bot(self):
         zip_path = "sample_bots/UiPath_Excel_Processor_Bot.zip"
@@ -70,8 +76,9 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertGreater(proj.total_activities, 5)
         self.assertEqual(proj.total_unmapped, 0)
         robin = self.pm.get_full_project_robin(proj)
-        self.assertIn("Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess", robin)
-        self.assertIn("Excel.ReadFromExcel.ReadAllCells", robin)
+        self.assertIn("Excel.LaunchExcel.LaunchAndOpen Path: excelFilePath", robin)
+        self.assertIn("Excel.LaunchExcel.Launch Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance", robin)
+        self.assertIn("Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance ReadAsText: False FirstLineIsHeader: True RangeValue=> customersTable", robin)
         self.assertIn("LOOP FOREACH", robin)
 
     def test_sample_file_bot(self):
@@ -81,7 +88,7 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertGreater(proj.total_activities, 5)
         self.assertEqual(proj.total_unmapped, 0)
         robin = self.pm.get_full_project_robin(proj)
-        self.assertIn("Folder.Create", robin)
+        self.assertIn("Folder.Create FolderPath: backupFolder", robin)
         self.assertIn("File.WriteText.WriteText", robin)
         self.assertIn("System.RunApplication.RunApplicationAndWaitForExit", robin)
         self.assertIn("System.TerminateProcess.TerminateProcessByName", robin)
@@ -140,17 +147,23 @@ class TestUiPathToRobinConverter(unittest.TestCase):
 
             # 5. HTTP response status verification wrapping success messages and stopping flow on error
             self.assertIn("IF responseStatus >= 200 AND responseStatus < 300 THEN", robin)
-            self.assertIn("FlowControl.StopFlow", robin)
+            self.assertIn("EXIT Code: 0", robin)
+            self.assertNotIn("FlowControl.StopFlow", robin)
+            self.assertIn("Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonArray", robin)
+            self.assertIn("SET count TO jsonArray.Count", robin)
+            self.assertIn("RequestBody: requestBody", robin)
 
             # 6. DataTable row mapping uses CurrentItem and rowToAdd
             self.assertNotIn('currentJToken', robin)
             self.assertIn("Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToAdd:", robin)
 
             # 7. Excel workbook and sheet setup
-            self.assertIn("IF (File.IfFile.Exists File: %excelPath%) THEN", robin)
+            self.assertIn("IF (File.IfFile.Exists File: excelPath) THEN", robin)
+            self.assertIn("Excel.LaunchExcel.LaunchAndOpen Path: excelPath Visible: True ReadOnly: False LoadAddInsAndMacros: False Instance=> ExcelInstance", robin)
+            self.assertIn("Excel.LaunchExcel.Launch Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance", robin)
             self.assertIn("Excel.SetActiveWorksheet.ActivateWorksheetByName", robin)
-            self.assertIn("Excel.WriteToExcel.WriteCell", robin)
-            self.assertIn("Excel.CloseExcel.CloseAndSaveAs", robin)
+            self.assertIn("Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: dtPosts Column: 1 Row: 2", robin)
+            self.assertIn("Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: excelPath", robin)
 
     def test_real_data_employee_onboarding(self):
         pkg_path = "data/EmployeeOnboardingBot.1.0.1 2.nupkg"
@@ -160,8 +173,10 @@ class TestUiPathToRobinConverter(unittest.TestCase):
             self.assertEqual(proj.name, "EmployeeOnboardingBot")
             self.assertEqual(proj.total_unmapped, 0)
             robin = self.pm.get_full_project_robin(proj)
-            self.assertIn("Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess", robin)
-            self.assertIn("SWITCH %department%", robin)
+            self.assertIn("Excel.LaunchExcel.LaunchAndOpen Path: $'''Employees.xlsx'''", robin)
+            self.assertIn("SWITCH department", robin)
+            self.assertNotIn("New System.Data.DataTable", robin)
+            self.assertNotIn("END SWITCH", robin)
             self.assertIn("CASE $'''IT'''", robin)
 
     def test_condition_casts_and_typed_variables(self):
@@ -515,6 +530,134 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertIn("package=Text; action=toNumber; resolved=convert text to number", out)
         self.assertIn("package=MessageBox; action=messageBox; resolved=show message", out)
         self.assertIn("ButtonPressed=> ButtonPressed", out)
+
+    def test_no_bare_percent_tokens_or_invalid_pad_actions_across_all_packages(self):
+        pad_string_re = re.compile(r"\$'''(?:(?!''').)*'''")
+        invalid_tokens = (
+            "FlowControl.StopFlow",
+            "LaunchBlank",
+            "FirstRowIsHeader",
+            "Flow.RunFlow",
+            "END SWITCH",
+            "New System.Data",
+        )
+        html_tokens = ("<br", "&gt;", "&lt;", "&amp;", "<a ", "\u00a0")
+        packages = sorted(glob.glob("data/*.nupkg") + glob.glob("sample_bots/*.zip"))
+        self.assertTrue(packages)
+
+        for pkg_path in packages:
+            for include_meta in (False, True):
+                pm = ProjectManager(include_node_metadata=include_meta)
+                with open(pkg_path, "rb") as f:
+                    proj = pm.process_zip_bytes(f.read(), os.path.basename(pkg_path))
+                robin = pm.get_full_project_robin(proj)
+                for line in robin.splitlines():
+                    for tok in invalid_tokens:
+                        self.assertNotIn(tok, line, msg=f"{pkg_path}: invalid token {tok} in {line}")
+                    for tok in html_tokens:
+                        self.assertNotIn(tok, line, msg=f"{pkg_path}: HTML token {tok} in {line}")
+                    stripped = pad_string_re.sub("", line)
+                    if not stripped.lstrip().startswith("#"):
+                        self.assertNotIn("%", stripped, msg=f"{pkg_path}: bare % outside quotes in {line}")
+
+        tagged = apply_robin_node_metadata("EXIT Code: 0\nSWITCH department", workflow_name="CrudOperation")
+        self.assertIn("package=FlowControl; action=stopFlow; resolved=stop flow\nEXIT Code: 0", tagged)
+        self.assertIn("package=Switch; action=switch; resolved=switch\nSWITCH department", tagged)
+
+    def test_app_llm_exposes_endpoint_model_and_api_key_ui(self):
+        with open("app_llm.py", encoding="utf-8") as f:
+            src = f.read()
+        self.assertIn('"Endpoint"', src)
+        self.assertIn('"Model"', src)
+        self.assertIn('"API Key"', src)
+        self.assertIn("endpoint=endpoint", src)
+        self.assertIn("PROVIDER_PRESETS", src)
+
+    def test_llm_custom_endpoints_routing(self):
+        openai_json = json.dumps({
+            "summary": "Custom endpoint conversion.",
+            "robin_script": "SET x TO $'''ok'''",
+        })
+        gemini_resp = MagicMock()
+        gemini_resp.status_code = 200
+        gemini_resp.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": openai_json}]}}]
+        }
+        openai_resp = MagicMock()
+        openai_resp.status_code = 200
+        openai_resp.json.return_value = {
+            "choices": [{"message": {"content": openai_json}}]
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_path = lambda p: __import__("pathlib").Path(tmpdir) / p
+
+            # 1. Localhost OpenAI-compatible endpoint allows empty API key
+            with patch("llm.requests.post", return_value=openai_resp) as mock_post, patch(
+                "llm.Path", side_effect=temp_path
+            ):
+                res = llm.convert_to_robin(
+                    "",
+                    "llama3.1",
+                    "<Activity/>",
+                    [],
+                    endpoint="http://localhost:11434/v1",
+                )
+            self.assertTrue(res["success"])
+            self.assertEqual(res["endpoint_used"], "http://localhost:11434/v1/chat/completions")
+            self.assertEqual(mock_post.call_args.args[0], "http://localhost:11434/v1/chat/completions")
+
+            # 2. Remote OpenRouter endpoint routes Gemini model name to /chat/completions
+            with patch("llm.requests.post", return_value=openai_resp) as mock_post, patch(
+                "llm.Path", side_effect=temp_path
+            ):
+                res = llm.convert_to_robin(
+                    "or-key",
+                    "google/gemini-2.0-flash-001",
+                    "<Activity/>",
+                    [],
+                    endpoint="https://openrouter.ai/api/v1",
+                )
+            self.assertTrue(res["success"])
+            self.assertEqual(mock_post.call_args.args[0], "https://openrouter.ai/api/v1/chat/completions")
+            self.assertEqual(mock_post.call_args.kwargs["headers"]["Authorization"], "Bearer or-key")
+
+            # 3. Azure OpenAI uses api-key header and deployment URL
+            with patch("llm.requests.post", return_value=openai_resp) as mock_post, patch(
+                "llm.Path", side_effect=temp_path
+            ):
+                res = llm.convert_to_robin(
+                    "az-key",
+                    "my-gpt4o",
+                    "<Activity/>",
+                    [],
+                    endpoint="https://contoso.openai.azure.com",
+                )
+            self.assertTrue(res["success"])
+            self.assertIn("/openai/deployments/my-gpt4o/chat/completions", mock_post.call_args.args[0])
+            self.assertEqual(mock_post.call_args.kwargs["headers"]["api-key"], "az-key")
+
+            # 4. Custom Gemini endpoint appends key and calls exact URL
+            with patch("llm.requests.post", return_value=gemini_resp) as mock_post, patch(
+                "llm.Path", side_effect=temp_path
+            ):
+                res = llm.convert_to_robin(
+                    "gem-key",
+                    "gemini-2.0-flash",
+                    "<Activity/>",
+                    [],
+                    endpoint="https://proxy.example.com/v1beta/models/gemini-2.0-flash:generateContent",
+                )
+            self.assertTrue(res["success"])
+            self.assertEqual(
+                mock_post.call_args.args[0],
+                "https://proxy.example.com/v1beta/models/gemini-2.0-flash:generateContent?key=gem-key",
+            )
+
+            # 5. Remote endpoint rejects empty API key cleanly
+            err_res = llm.convert_to_robin("", "gpt-4o", "<Activity/>", [], endpoint="https://api.openai.com/v1")
+            self.assertFalse(err_res["success"])
+            self.assertIn("API Key is required", err_res["error"])
 
 if __name__ == "__main__":
     unittest.main()

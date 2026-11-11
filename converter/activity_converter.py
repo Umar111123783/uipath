@@ -116,6 +116,16 @@ def convert_write_line(activity: ParsedActivity) -> str:
     robin_text = convert_uipath_expression_to_robin(text)
     return f"# [Console Log]: {robin_text}"
 
+def format_http_error_actions(status_var: str, result_var: str) -> str:
+    """Return unindented API error dialog and Stop flow actions for failed HTTP calls."""
+    return (
+        f"Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
+        f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
+        f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
+        f"EXIT Code: 0"
+    )
+
+
 def convert_http_client(activity: ParsedActivity, include_status_check: bool = True) -> str:
     url = str(get_prop(activity, "EndPoint") or get_prop(activity, "RequestUrl") or get_prop(activity, "Url", "https://api.example.com"))
     method = str(get_prop(activity, "Method", "GET")).upper()
@@ -156,10 +166,7 @@ def convert_http_client(activity: ParsedActivity, include_status_check: bool = T
     if include_status_check:
         status_check = (
             f"\nIF {status_var} < 200 OR {status_var} >= 300 THEN\n"
-            f"    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
-            f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
-            f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
-            f"    FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally\n"
+            f"{indent_lines(format_http_error_actions(status_var, result_var), 1)}\n"
             f"END"
         )
         return invoke_code + status_check
@@ -169,9 +176,13 @@ def convert_http_client(activity: ParsedActivity, include_status_check: bool = T
 def convert_deserialize_json(activity: ParsedActivity) -> str:
     json_str = str(get_prop(activity, "JsonString", "responseString"))
     json_str_clean = clean_uipath_expression(json_str)
+    if json_str.strip().startswith('[') or json_str_clean.startswith('"'):
+        json_val = convert_uipath_expression_to_robin(json_str)
+    else:
+        json_val = json_str_clean or "responseString"
     out_obj = str(get_prop(activity, "JsonObject") or get_prop(activity, "JsonArray") or "JsonData")
     out_obj_clean = re.sub(r'[\[\]]', '', out_obj).strip() or "JsonData"
-    return f"Variables.ConvertJsonToCustomObject Json: %{json_str_clean}% CustomObject=> {out_obj_clean}"
+    return f"Variables.ConvertJsonToCustomObject Json: {json_val} CustomObject=> {out_obj_clean}"
 
 def convert_build_data_table(activity: ParsedActivity) -> str:
     dt = re.sub(r'[\[\]]', '', str(get_prop(activity, "DataTable", "DataTable"))).strip() or "DataTable"
@@ -279,9 +290,9 @@ def convert_excel_scope(activity: ParsedActivity, inner_code: str) -> str:
     robin_path = convert_uipath_expression_to_robin(path)
     lines = [
         f"IF (File.IfFile.Exists File: {robin_path}) THEN",
-        f"    Excel.LaunchExcel.LaunchAndOpenUnderExistingProcess Path: {robin_path} Visible: True ReadOnly: False Instance=> ExcelInstance",
+        f"    Excel.LaunchExcel.LaunchAndOpen Path: {robin_path} Visible: True ReadOnly: False LoadAddInsAndMacros: False Instance=> ExcelInstance",
         f"ELSE",
-        f"    Excel.LaunchExcel.LaunchBlank Visible: True Instance=> ExcelInstance",
+        f"    Excel.LaunchExcel.Launch Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance",
         f"END"
     ]
     if inner_code:
@@ -292,7 +303,7 @@ def convert_excel_scope(activity: ParsedActivity, inner_code: str) -> str:
 def convert_read_range(activity: ParsedActivity) -> str:
     out_dt = clean_uipath_expression(str(get_prop(activity, "DataTable") or get_prop(activity, "SaveTo") or "ExcelData"))
     out_dt = re.sub(r'[\[\]]', '', out_dt).strip() or "ExcelData"
-    return f"Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance FirstRowIsHeader: True RangeValue=> {out_dt}"
+    return f"Excel.ReadFromExcel.ReadAllCells Instance: ExcelInstance ReadAsText: False FirstLineIsHeader: True RangeValue=> {out_dt}"
 
 def convert_write_range(activity: ParsedActivity) -> str:
     in_dt = clean_uipath_expression(str(get_prop(activity, "DataTable") or get_prop(activity, "Source") or "ExcelData"))
@@ -306,7 +317,7 @@ def convert_write_range(activity: ParsedActivity) -> str:
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''id''' Column: 2 Row: 1\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''title''' Column: 3 Row: 1\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''body''' Column: 4 Row: 1\n"
-        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %{in_dt}% Column: 1 Row: 2"
+        f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: {in_dt} Column: 1 Row: 2"
     )
 
 def convert_excel_save(activity: ParsedActivity) -> str:
@@ -380,7 +391,7 @@ def convert_invoke_workflow(activity: ParsedActivity) -> str:
     wf = str(get_prop(activity, "WorkflowFileName", "Subflow"))
     name = wf.replace("\\", "/").split("/")[-1].replace(".xaml", "")
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', name)
-    return f"Flow.RunFlow SubflowName: {safe_name}"
+    return f"CALL {safe_name}"
 
 def convert_show_form(activity: ParsedActivity) -> str:
     form_args = activity.properties.get("_form_arguments", [])

@@ -8,6 +8,7 @@ from parser import (
 from .models import WorkflowFile, ParsedActivity, ParsedVariable, ParsedArgument, ParsedSelector, ProjectMetadata
 from .activity_converter import (
     indent_lines,
+    format_http_error_actions,
     convert_assign,
     convert_delay,
     convert_message_box,
@@ -123,9 +124,13 @@ class RobinGenerator:
 
         action_lines: List[str] = []
 
-        # Variable initializations (strictly executable SET statements, no decorative comments/blank lines)
+        # Variable initializations (strictly executable SET statements, deduplicated by name)
         if wf.variables:
+            seen_vars: Set[str] = set()
             for var in wf.variables:
+                if var.name in seen_vars:
+                    continue
+                seen_vars.add(var.name)
                 pkg, _, _ = infer_assign_metadata(var.name, var.default_value or "", var.type_name)
                 if var.default_value and var.default_value != "{x:Null}":
                     val = convert_uipath_expression_to_robin(var.default_value)
@@ -249,10 +254,7 @@ class RobinGenerator:
                             f"IF {status_var} >= 200 AND {status_var} < 300 THEN\n"
                             f"{indent_lines(msg_code, 1)}\n"
                             f"ELSE\n"
-                            f"    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
-                            f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
-                            f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
-                            f"    FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally\n"
+                            f"{indent_lines(format_http_error_actions(status_var, result_var), 1)}\n"
                             f"END"
                         )
                         inner_lines.append(wrapped_block)
@@ -308,7 +310,7 @@ class RobinGenerator:
         if tag == "Switch":
             expr = str(activity.properties.get("Expression", "department"))
             robin_expr = clean_uipath_expression(expr)
-            lines = [f"SWITCH %{robin_expr}%"]
+            lines = [f"SWITCH {robin_expr}"]
 
             for child in activity.children:
                 branch = child.properties.get("_branch")
@@ -328,7 +330,7 @@ class RobinGenerator:
                     if inner_code:
                         lines.append(indent_lines(inner_code, 1))
 
-            lines.append("END SWITCH")
+            lines.append("END")
             activity.is_mapped = True
             activity.robin_code = self._join_clean_blocks(lines)
             return activity.robin_code
