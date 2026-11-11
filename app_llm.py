@@ -85,6 +85,13 @@ with st.sidebar:
     )
 
     st.markdown("---")
+    st.subheader("⚙️ Output Format")
+    include_node_metadata = st.checkbox(
+        "Include # node_id metadata lines",
+        value=True,
+        help="Prefix each Robin action with `# node_id=<Bot>.<index>.<hex>; package=...; action=...; resolved=...` separated by blank lines.",
+    )
+    st.markdown("---")
 
     if api_key:
         st.success(f"✅ Key Configured! Target: **{model}**")
@@ -139,7 +146,7 @@ if uploaded is not None:
                     model=model,
                     xml_context=xml_context,
                     dlls=dlls,
-                    include_node_metadata=False,
+                    include_node_metadata=include_node_metadata,
                     temperature=temperature,
                 )
 
@@ -161,15 +168,18 @@ if uploaded is not None:
 
             st.subheader("⚡ Generated Power Automate Desktop (Robin) Script")
             st.info(
-                "💡 **How to Paste into Power Automate Desktop:**\n"
-                "1. Click the **Copy** icon in the top right corner of the code block below.\n"
+                "💡 **How to Copy Without HTML Corruption (`<br>`, `&gt;`, `<a href>`):**\n"
+                "1. Click inside the **Plain Text** box below and press **Ctrl + A → Ctrl + C**, or click **Download Robin Script (.txt)**.\n"
                 "2. Open your desktop flow in Power Automate Desktop.\n"
-                "3. Click on the central canvas and press **Ctrl + V**.\n"
-                "4. All actions and nodes will paste immediately!"
+                "3. Click on the central canvas and press **Ctrl + V**."
             )
 
             robin_code = result.get("robin_script", "")
-            st.code(robin_code, language="text")
+            st.text_area(
+                "Plain Text Robin Script (Copy-Safe: Ctrl+A → Ctrl+C — never adds <br> or &gt;)",
+                value=robin_code,
+                height=320,
+            )
 
             st.download_button(
                 label="📥 Download Robin Script (.txt)",
@@ -178,6 +188,9 @@ if uploaded is not None:
                 mime="text/plain",
                 use_container_width=True,
             )
+
+            with st.expander("Formatted Code View (Use Plain Text Box Above to Copy)"):
+                st.code(robin_code, language="text")
 
             with st.expander("🔍 View Raw LLM Model Response"):
                 st.text(result.get("raw_response", ""))

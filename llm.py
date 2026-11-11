@@ -4,7 +4,11 @@ import time
 import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from parser import sanitize_robin_script
+from parser import (
+    apply_robin_node_metadata,
+    extract_robin_metadata_context,
+    sanitize_robin_script,
+)
 
 SYSTEM_PROMPT = """You are an expert RPA migration engineer specialized in converting UiPath projects (XAML workflows, dependencies, selectors) into native Microsoft Power Automate Desktop (PAD) Robin language scripts.
 
@@ -23,6 +27,7 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
    - Do NOT emit header banners ('# POWER AUTOMATE DESKTOP...', '# Project:...', '# Instructions:...'), '# node_id=...' metadata lines, '# Converted from...', or decorative '# ====' / '# ****' / '# ---' divider comments (such as '# --- Initialize Variables ---').
    - Only emit '# ...' lines for genuine Comment or Log activities from the source bot (every '#' line becomes a Comment action on the PAD canvas).
    - Do NOT output markdown fences or blank lines inside blocks.
+   - Output PLAIN TEXT Robin syntax ONLY: NEVER HTML-encode characters (never output '&gt;', '&lt;', '&amp;', '&quot;', or '=&gt;'; use raw '>', '<', '&', '"', '=>'), and NEVER wrap URLs in HTML '<a href=...>...</a>' tags or Markdown '[url](url)' links.
 
 2. EXACT NATIVE PAD ACTION IDENTIFIERS:
    - Web service: Web.InvokeWebService.InvokeWebService Url: $'''...''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
@@ -81,7 +86,12 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
      Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: %excelPath%
 """
 
-def _parse_llm_response(response_text: str) -> Tuple[str, str]:
+def _parse_llm_response(
+    response_text: str,
+    include_node_metadata: bool = False,
+    workflow_name: str = "Workflow",
+    var_types: Optional[Dict[str, str]] = None,
+) -> Tuple[str, str]:
     """Extract (summary, sanitized_robin_script) from raw LLM text output."""
     if not response_text:
         return "", ""
@@ -118,7 +128,24 @@ def _parse_llm_response(response_text: str) -> Tuple[str, str]:
     if isinstance(robin_script, (list, dict)):
         robin_script = json.dumps(robin_script, indent=2, ensure_ascii=False)
 
-    return summary, sanitize_robin_script(str(robin_script or ""))
+    cleaned = sanitize_robin_script(
+        str(robin_script or ""),
+        keep_node_metadata=False,
+        preserve_blank_lines=False,
+    )
+    if cleaned and include_node_metadata:
+        cleaned = apply_robin_node_metadata(
+            cleaned,
+            workflow_name=workflow_name,
+            var_types=var_types,
+            reset_per_subflow=True,
+        )
+        cleaned = sanitize_robin_script(
+            cleaned,
+            keep_node_metadata=True,
+            preserve_blank_lines=True,
+        )
+    return summary, cleaned
 
 
 def _call_gemini(
@@ -225,7 +252,6 @@ def convert_to_robin(
     Convert UiPath XML context and DLLs into a clean PAD Robin script and summary
     strictly using an LLM call (Google Gemini or OpenAI), with no local AST fallback.
     """
-    _ = include_node_metadata  # Unused; metadata headers are excluded from clean Robin output
     clean_model = model.strip()
     if clean_model.startswith("openai."):
         clean_model = clean_model.replace("openai.", "", 1)
@@ -276,7 +302,13 @@ def convert_to_robin(
             "model_used": used_model,
         }
 
-    summary, robin_script = _parse_llm_response(response_text)
+    workflow_name, var_types = extract_robin_metadata_context(xml_context)
+    summary, robin_script = _parse_llm_response(
+        response_text,
+        include_node_metadata=include_node_metadata,
+        workflow_name=workflow_name,
+        var_types=var_types,
+    )
     if not robin_script:
         return {
             "success": False,

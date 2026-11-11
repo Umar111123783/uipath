@@ -1,6 +1,10 @@
 import re
-import hashlib
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Tuple
+from parser import (
+    apply_robin_node_metadata,
+    infer_assign_metadata,
+    sanitize_robin_script,
+)
 from .models import WorkflowFile, ParsedActivity, ParsedVariable, ParsedArgument, ParsedSelector, ProjectMetadata
 from .activity_converter import (
     indent_lines,
@@ -47,36 +51,6 @@ from .expression_parser import (
     convert_uipath_expression_to_robin,
     clean_uipath_expression
 )
-
-PACKAGE_MAP = {
-    "Assign": ("String", "assign", "assign"),
-    "MultipleAssign": ("String", "assign", "assign"),
-    "Delay": ("Delay", "delay", "delay"),
-    "MessageBox": ("MessageBox", "messageBox", "show message"),
-    "InputDialog": ("Display", "inputDialog", "input dialog"),
-    "ShowFormActivity": ("Display", "inputDialog", "input dialog"),
-    "HttpClient": ("Web", "invokeWebService", "invoke web service"),
-    "NetHttpRequest": ("Web", "invokeWebService", "invoke web service"),
-    "DeserializeJson": ("Json", "deserializeJson", "convert json to custom object"),
-    "DeserializeJsonArray": ("Json", "deserializeJson", "convert json to custom object"),
-    "BuildDataTable": ("DataTable", "buildDataTable", "create new datatable"),
-    "AddDataRow": ("DataTable", "addDataRow", "add row to datatable"),
-    "If": ("If", "if", "if"),
-    "ForEach": ("Loop", "loop", "loop foreach"),
-    "ExcelApplicationScope": ("Excel", "excelScope", "launch excel"),
-    "ExcelWriteRange": ("Excel", "writeCell", "write datatable to excel"),
-    "WriteRangeX": ("Excel", "writeCell", "write datatable to excel"),
-    "ExcelReadRange": ("Excel", "readRange", "read excel range"),
-    "ReadRangeX": ("Excel", "readRange", "read excel range"),
-    "ExcelSaveWorkbook": ("Excel", "saveExcel", "save excel"),
-    "ExcelCloseWorkbook": ("Excel", "closeExcel", "close excel"),
-    "OpenBrowser": ("WebAutomation", "openBrowser", "launch chrome"),
-    "Click": ("WebAutomation", "click", "click"),
-    "TypeInto": ("WebAutomation", "typeInto", "populate text field"),
-    "GetValue": ("WebAutomation", "getValue", "get text"),
-    "Comment": ("Comment", "Comment", "comment"),
-    "CommentOut": ("Comment", "Comment", "comment")
-}
 
 class RobinGenerator:
     def __init__(
@@ -127,17 +101,16 @@ class RobinGenerator:
             ]
         return combined
 
-    def _create_node_comment(self, package: str, action: str, resolved: str) -> str:
-        """Create a structured Automation Anywhere / Robin node metadata comment."""
-        seed = f"{self.current_workflow_name}_{self.node_counter:05d}_{package}_{action}"
-        hex8 = hashlib.md5(seed.encode("utf-8")).hexdigest()[:8]
-        node_str = f"1.{self.node_counter:05d}.{hex8}"
-        self.node_counter += 1
-        return f"# node_id={self.current_workflow_name} {node_str}; package={package}; action={action}; resolved={resolved}"
-
-    def generate_for_workflow(self, wf: WorkflowFile, as_subflow: bool = False) -> str:
+    def generate_for_workflow(
+        self,
+        wf: WorkflowFile,
+        as_subflow: bool = False,
+        workflow_label: Optional[str] = None,
+    ) -> str:
         """Generate Robin script for a single workflow file."""
-        self.current_workflow_name = re.sub(r'[^a-zA-Z0-9_]', '_', wf.display_name) or "Workflow"
+        self.current_workflow_name = (
+            re.sub(r'[^a-zA-Z0-9_]', '_', workflow_label or wf.display_name) or "Workflow"
+        )
         self.node_counter = 1
         self.input_dialog_vars = set()
         self.text_vars = {
@@ -145,6 +118,7 @@ class RobinGenerator:
             for v in wf.variables
             if any(tok in v.type_name.lower() for tok in ("string", "text"))
         }
+        var_types: Dict[str, str] = {v.name: v.type_name for v in wf.variables}
         self.active_dialog_var = None
 
         action_lines: List[str] = []
@@ -152,26 +126,13 @@ class RobinGenerator:
         # Variable initializations (strictly executable SET statements, no decorative comments/blank lines)
         if wf.variables:
             for var in wf.variables:
-                vtype = var.type_name.lower()
-                if "int" in vtype or "num" in vtype or "double" in vtype or "decimal" in vtype or "single" in vtype:
-                    var_pkg = "Number"
-                elif "bool" in vtype:
-                    var_pkg = "Boolean"
-                elif "list" in vtype or "array" in vtype:
-                    var_pkg = "List"
-                elif "datatable" in vtype:
-                    var_pkg = "DataTable"
-                elif "jobject" in vtype or "customobject" in vtype:
-                    var_pkg = "CustomObject"
-                else:
-                    var_pkg = "String"
-
+                pkg, _, _ = infer_assign_metadata(var.name, var.default_value or "", var.type_name)
                 if var.default_value and var.default_value != "{x:Null}":
                     val = convert_uipath_expression_to_robin(var.default_value)
                     action_lines.append(f"SET {var.name} TO {val}")
-                elif var_pkg == "Boolean":
+                elif pkg == "Boolean":
                     action_lines.append(f"SET {var.name} TO False")
-                elif var_pkg == "Number":
+                elif pkg == "Number":
                     action_lines.append(f"SET {var.name} TO 0")
                 else:
                     action_lines.append(f"SET {var.name} TO $''''''")
@@ -183,6 +144,17 @@ class RobinGenerator:
                 action_lines.append(converted_tree)
 
         body = self._join_clean_blocks(action_lines)
+        if self.include_node_metadata:
+            body = apply_robin_node_metadata(
+                body,
+                workflow_name=self.current_workflow_name,
+                var_types=var_types,
+            )
+        body = sanitize_robin_script(
+            body,
+            keep_node_metadata=self.include_node_metadata,
+            preserve_blank_lines=self.include_node_metadata,
+        )
 
         if as_subflow:
             subflow_name = re.sub(r'[^a-zA-Z0-9_]', '_', wf.display_name)
@@ -216,25 +188,32 @@ class RobinGenerator:
         if main_wf:
             # Emit bare actions for single-flow bots for direct Ctrl+V canvas paste in PAD
             as_sub = len(other_wfs) > 0
-            output_parts.append(self.generate_for_workflow(main_wf, as_subflow=as_sub))
+            main_label = project.name if project.name and main_wf.display_name.lower() == "main" else main_wf.display_name
+            output_parts.append(self.generate_for_workflow(main_wf, as_subflow=as_sub, workflow_label=main_label))
 
         # Other subflows
         for wf in other_wfs:
             output_parts.append(self.generate_for_workflow(wf, as_subflow=True))
 
+        if self.include_node_metadata:
+            return "\n\n".join([p for p in output_parts if p and p.strip()])
         return self._join_clean_blocks(output_parts)
 
     def generate_clean_pasteable_script(self, project: ProjectMetadata) -> str:
         """
         Generate a 100% clean, pure PAD Robin script containing ONLY executable actions
-        (plus genuine source comments), strictly compatible with Power Automate Desktop Ctrl+V.
+        (plus # node_id metadata if enabled and genuine source comments), compatible with PAD Ctrl+V.
         """
         clean_gen = RobinGenerator(
             include_comments=False,
             include_selectors_header=False,
-            include_node_metadata=False,
+            include_node_metadata=self.include_node_metadata,
         )
-        return clean_gen.generate_full_project(project)
+        return sanitize_robin_script(
+            clean_gen.generate_full_project(project),
+            keep_node_metadata=self.include_node_metadata,
+            preserve_blank_lines=self.include_node_metadata,
+        )
 
     def _convert_children(self, children: List[ParsedActivity]) -> str:
         """Convert child activities cleanly without double-evaluating nodes."""

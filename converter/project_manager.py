@@ -8,12 +8,19 @@ from .uipath_parser import UiPathXamlParser
 from .robin_generator import RobinGenerator
 
 class ProjectManager:
-    def __init__(self, include_comments: bool = False, include_selectors_header: bool = False):
+    def __init__(
+        self,
+        include_comments: bool = False,
+        include_selectors_header: bool = False,
+        include_node_metadata: bool = False,
+    ):
         self.include_comments = include_comments
         self.include_selectors_header = include_selectors_header
+        self.include_node_metadata = include_node_metadata
         self.generator = RobinGenerator(
             include_comments=include_comments,
-            include_selectors_header=include_selectors_header
+            include_selectors_header=include_selectors_header,
+            include_node_metadata=include_node_metadata,
         )
 
     def process_zip_bytes(self, zip_bytes: bytes, project_name_override: Optional[str] = None) -> ProjectMetadata:

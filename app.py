@@ -31,6 +31,13 @@ with st.sidebar:
         "into clean Power Automate Desktop (Robin) actions using Python AST parsing.\n\n"
         "No external API keys or LLM calls are used."
     )
+    st.markdown("---")
+    st.subheader("⚙️ Output Format")
+    include_node_metadata = st.checkbox(
+        "Include # node_id metadata lines",
+        value=True,
+        help="Prefix each Robin action with `# node_id=<Bot>.<index>.<hex>; package=...; action=...; resolved=...` separated by blank lines.",
+    )
 
 # ==================================================
 # Upload
@@ -50,7 +57,7 @@ if uploaded is not None:
         st.stop()
 
     try:
-        pm = ProjectManager()
+        pm = ProjectManager(include_node_metadata=include_node_metadata)
         raw_bytes = uploaded.getvalue()
 
         if extension in [".zip", ".nupkg"]:
@@ -137,15 +144,17 @@ if uploaded is not None:
 
             st.subheader("Generated Robin Script")
             st.info(
-                "💡 **How to Paste into Power Automate Desktop (PAD):**\n"
-                "1. Click the **Copy** icon in the top right corner of the code box below.\n"
-                "2. Open Power Automate Desktop and create a new desktop flow.\n"
-                "3. Click anywhere on the central flow designer canvas (the main workspace).\n"
-                "4. Press **Ctrl + V** on your keyboard.\n"
-                "5. All actions will instantly convert into native Power Automate visual action cards!"
+                "💡 **How to Copy Without HTML Corruption (`<br>`, `&gt;`, `<a href>`):**\n"
+                "1. Click inside the **Plain Text** box below and press **Ctrl + A → Ctrl + C**, or click **Download Robin Script (.txt)**.\n"
+                "2. Open Power Automate Desktop and create/open your desktop flow.\n"
+                "3. Click on the central flow designer canvas and press **Ctrl + V**."
             )
 
-            st.code(robin_script, language="text")
+            st.text_area(
+                "Plain Text Robin Script (Copy-Safe: Ctrl+A → Ctrl+C — never adds <br> or &gt;)",
+                value=robin_script,
+                height=320,
+            )
 
             st.download_button(
                 label="Download Robin Script (.txt)",
@@ -154,11 +163,19 @@ if uploaded is not None:
                 mime="text/plain",
             )
 
+            with st.expander("Formatted Code View (Use Plain Text Box Above to Copy)"):
+                st.code(robin_script, language="text")
+
             if len(project.workflows) > 1:
                 with st.expander("Individual Workflow Scripts (Single-Canvas Copy)"):
-                    for wf in project.workflows:
+                    for idx, wf in enumerate(project.workflows):
                         st.markdown(f"**{wf.filename}** ({wf.mapped_count}/{len(wf.all_activities)} mapped)")
-                        st.code(wf.robin_script, language="text")
+                        st.text_area(
+                            f"Plain text: {wf.filename}",
+                            value=wf.robin_script,
+                            height=200,
+                            key=f"wf_plain_{idx}_{wf.filename}",
+                        )
 
     except Exception as ex:
         st.error(f"Error: {str(ex)}")

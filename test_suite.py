@@ -295,5 +295,226 @@ class TestUiPathToRobinConverter(unittest.TestCase):
         self.assertNotIn("POWER AUTOMATE DESKTOP", res["robin_script"])
         self.assertIn("SET userAgeText TO $''''''", res["robin_script"])
 
+    def test_sanitize_strips_html_entities_and_anchor_links(self):
+        corrupted = "\n".join([
+            "Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=&gt; jsonObj",
+            "Web.InvokeWebService.InvokeWebService Url: $'''<a href=\"https://jsonplaceholder.typicode.com/posts\">https://jsonplaceholder.typicode.com/posts</a>''' Method: Web.Method.Get Response=&gt; responseString StatusCode=&gt; responseStatus",
+            "Web.InvokeWebService.InvokeWebService Url: $'''<a href=\"https://jsonplaceholder.typicode.com/posts?userId=1&amp;mode=active\">https://jsonplaceholder.typicode.com/posts?userId=1&amp;mode=active</a>''' Method: Web.Method.Get StatusCode=&gt; responseStatus",
+            "IF responseStatus &lt; 200 OR responseStatus &gt;= 300 THEN",
+            "    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''Failed''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=&gt; ButtonPressed",
+            "END",
+        ])
+        cleaned = sanitize_robin_script(corrupted)
+        expected = "\n".join([
+            "Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj",
+            "Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Get Response=> responseString StatusCode=> responseStatus",
+            "Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts?userId=1&mode=active''' Method: Web.Method.Get StatusCode=> responseStatus",
+            "IF responseStatus < 200 OR responseStatus >= 300 THEN",
+            "    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''Failed''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed",
+            "END",
+        ])
+        self.assertEqual(cleaned, expected)
+
+        br_corrupted = (
+            "SET x TO $''''''<br>\u00a0<br/>"
+            "Display.InputDialog Title: $'''Age''' UserInput=&gt; age ButtonPressed=&gt; ButtonPressed&lt;br /&gt;"
+            "IF age &gt;= 18 THEN<br>END"
+        )
+        br_cleaned = sanitize_robin_script(br_corrupted, preserve_blank_lines=True)
+        self.assertNotIn("<br", br_cleaned.lower())
+        self.assertNotIn("\u00a0", br_cleaned)
+        self.assertNotIn("&gt;", br_cleaned)
+        self.assertEqual(
+            br_cleaned,
+            "SET x TO $''''''\n\nDisplay.InputDialog Title: $'''Age''' UserInput=> age ButtonPressed=> ButtonPressed\nIF age >= 18 THEN\nEND",
+        )
+
+    def test_node_metadata_format_matches_app_output(self):
+        pm_meta = ProjectManager(include_node_metadata=True)
+        pkg_path = "data/AgeChecker.1.0.1 4.nupkg"
+        if os.path.exists(pkg_path):
+            with open(pkg_path, "rb") as f:
+                proj = pm_meta.process_zip_bytes(f.read())
+            robin = pm_meta.get_clean_pasteable_robin(proj)
+            self.assertRegex(
+                robin,
+                r"# node_id=AgeChecker\.00001\.[0-9a-f]{8}; package=String; action=assign; resolved=assign\nSET userAgeText TO \$''''''",
+            )
+            self.assertRegex(
+                robin,
+                r"\n\n# node_id=AgeChecker\.00002\.[0-9a-f]{8}; package=Display; action=inputDialog; resolved=input dialog\nDisplay\.InputDialog ",
+            )
+            self.assertIn("package=Text; action=toNumber; resolved=convert text to number", robin)
+            self.assertNotIn("# POWER AUTOMATE DESKTOP", robin)
+
+        xaml = """<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+          <Sequence DisplayName="Main">
+            <Sequence.Variables>
+              <Variable x:TypeArguments="x:String" Name="FolderPath" Default="C:\\Users\\demo\\Downloads" />
+              <Variable x:TypeArguments="x:String" Name="ExcelFilePath1" Default="[FolderPath + &quot;\\FileCleanupPlan.xlsx&quot;]" />
+            </Sequence.Variables>
+          </Sequence>
+        </Activity>"""
+        proj_single = pm_meta.process_single_xaml(xaml, filename="Excel_FileCleanup_Tracker.xaml")
+        robin_single = pm_meta.get_clean_pasteable_robin(proj_single)
+        self.assertRegex(
+            robin_single,
+            r"# node_id=Excel_FileCleanup_Tracker\.00001\.[0-9a-f]{8}; package=String; action=assign; resolved=assign\nSET FolderPath TO ",
+        )
+        self.assertRegex(
+            robin_single,
+            r"\n\n# node_id=Excel_FileCleanup_Tracker\.00002\.[0-9a-f]{8}; package=File; action=assign; resolved=assign\nSET ExcelFilePath1 TO ",
+        )
+
+        # Ensure sanitize_robin_script preserves # node_id and blank lines when requested while fixing HTML
+        corrupted = (
+            "# node_id=Test.00001.a1b2c3d4; package=Web; action=invokeWebService; resolved=invoke web service\n"
+            "Web.InvokeWebService.InvokeWebService Url: $'''<a href=\"https://example.com\">https://example.com</a>''' Response=&gt; out\n\n"
+            "# node_id=Test.00002.e5f6a7b8; package=If; action=if; resolved=if\n"
+            "IF out &lt;&gt; $'''''' THEN\nEND"
+        )
+        fixed = sanitize_robin_script(corrupted, keep_node_metadata=True, preserve_blank_lines=True)
+        self.assertIn("# node_id=Test.00001.a1b2c3d4; package=Web", fixed)
+        self.assertIn("\n\n# node_id=Test.00002.e5f6a7b8; package=If", fixed)
+        self.assertNotIn("<a href", fixed)
+        self.assertNotIn("&gt;", fixed)
+        self.assertNotIn("&lt;", fixed)
+        self.assertIn("Response=> out", fixed)
+
+    def test_html_sanitization_is_backend_only(self):
+        # Frontends must not expose the HTML-cleanup widget or run sanitize_robin_script directly
+        for frontend in ("app.py", "app_llm.py"):
+            with open(frontend, encoding="utf-8") as f:
+                src = f.read()
+            self.assertNotIn("Fix / Clean HTML-Corrupted Robin Script", src)
+            self.assertNotIn("sanitize_robin_script", src)
+
+        # Pure Python backend sanitizes workflow outputs (including wf.robin_script & clean pasteable output)
+        xaml = """<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+          <Sequence DisplayName="Main">
+            <Sequence.Variables>
+              <Variable x:TypeArguments="x:String" Name="apiUrl" Default="https://example.com" />
+            </Sequence.Variables>
+            <Assign DisplayName="Assign URL">
+              <Assign.To><OutArgument x:TypeArguments="x:String">[apiUrl]</OutArgument></Assign.To>
+              <Assign.Value><InArgument x:TypeArguments="x:String">[&quot;&lt;a href=&quot;https://example.com/posts&quot;&gt;https://example.com/posts&lt;/a&gt;&quot;]</InArgument></Assign.Value>
+            </Assign>
+          </Sequence>
+        </Activity>"""
+        pm = ProjectManager(include_node_metadata=True)
+        proj = pm.process_single_xaml(xaml, filename="Main.xaml")
+        wf_script = proj.workflows[0].robin_script
+        clean_script = pm.get_clean_pasteable_robin(proj)
+        for out in (wf_script, clean_script):
+            self.assertIn("https://example.com/posts", out)
+            self.assertNotIn("<a href", out)
+            self.assertNotIn("</a>", out)
+
+        # LLM backend automatically strips HTML entities and anchor tags
+        corrupted_json = json.dumps({
+            "summary": "Calls API.",
+            "robin_script": (
+                "Web.InvokeWebService.InvokeWebService "
+                "Url: $'''<a href=\"https://jsonplaceholder.typicode.com/posts\">https://jsonplaceholder.typicode.com/posts</a>''' "
+                "StatusCode=&gt; responseStatus\n"
+                "IF responseStatus &lt; 200 OR responseStatus &gt;= 300 THEN\n"
+                "END"
+            ),
+        })
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": corrupted_json}]}}]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("llm.requests.post", return_value=mock_resp), patch(
+                "llm.Path", side_effect=lambda p: __import__("pathlib").Path(tmpdir) / p
+            ):
+                res = llm.convert_to_robin("test-key", "gemini-2.0-flash", "<Activity/>", [], temperature=0.0)
+        self.assertTrue(res["success"])
+        self.assertIn("Url: $'''https://jsonplaceholder.typicode.com/posts'''", res["robin_script"])
+        self.assertIn("StatusCode=> responseStatus", res["robin_script"])
+        self.assertIn("IF responseStatus < 200 OR responseStatus >= 300 THEN", res["robin_script"])
+        self.assertNotIn("<a href", res["robin_script"])
+        self.assertNotIn("&gt;", res["robin_script"])
+        self.assertNotIn("&lt;", res["robin_script"])
+
+    def test_llm_node_metadata_matches_pure_python(self):
+        # Verify app_llm.py enables # node_id metadata option by default and forwards it
+        with open("app_llm.py", encoding="utf-8") as f:
+            app_llm_src = f.read()
+        self.assertIn("Include # node_id metadata lines", app_llm_src)
+        self.assertIn("include_node_metadata=include_node_metadata", app_llm_src)
+
+        xml_context = (
+            "================================================================================\n"
+            "FILE: project.json\n"
+            "================================================================================\n"
+            '{"name": "AgeChecker"}\n\n'
+            "================================================================================\n"
+            "WORKFLOW XAML FILE: Main.xaml\n"
+            "================================================================================\n"
+            '<Variable x:TypeArguments="x:String" Name="userAgeText" />\n'
+            '<Variable x:TypeArguments="x:Int32" Name="retryCount" />\n'
+        )
+        llm_json = json.dumps({
+            "summary": "Checks user age.",
+            "robin_script": "\n".join([
+                "# POWER AUTOMATE DESKTOP (ROBIN SCRIPT)",
+                "# node_id=WrongName.99999.deadbeef; package=Unknown; action=x; resolved=x",
+                "SET userAgeText TO $''''''",
+                "SET retryCount TO 1",
+                "Display.InputDialog Title: $'''Age''' Message: $'''Enter''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=&gt; ButtonPressed",
+                "IF ButtonPressed = $'''OK''' THEN",
+                "    Text.ToNumber Text: userAgeText Number=&gt; userAgeText_Num",
+                "    IF userAgeText_Num &gt;= 18 THEN",
+                "        Display.ShowMessageDialog.ShowMessage Title: $'''Msg''' Message: $'''Adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=&gt; ButtonPressed",
+                "    ELSE",
+                "        Display.ShowMessageDialog.ShowMessage Title: $'''Msg''' Message: $'''Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=&gt; ButtonPressed",
+                "    END",
+                "END",
+            ]),
+        })
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": llm_json}]}}]
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch("llm.requests.post", return_value=mock_resp), patch(
+                "llm.Path", side_effect=lambda p: __import__("pathlib").Path(tmpdir) / p
+            ):
+                res = llm.convert_to_robin(
+                    "test-key",
+                    "gemini-2.0-flash",
+                    xml_context,
+                    [],
+                    temperature=0.0,
+                    include_node_metadata=True,
+                )
+
+        self.assertTrue(res["success"])
+        out = res["robin_script"]
+        self.assertNotIn("WrongName.99999", out)
+        self.assertNotIn("&gt;", out)
+        self.assertNotIn("POWER AUTOMATE DESKTOP", out)
+        self.assertRegex(
+            out,
+            r"# node_id=AgeChecker\.00001\.[0-9a-f]{8}; package=String; action=assign; resolved=assign\nSET userAgeText TO \$''''''",
+        )
+        self.assertRegex(
+            out,
+            r"\n\n# node_id=AgeChecker\.00002\.[0-9a-f]{8}; package=Number; action=assignToNumber; resolved=assign\nSET retryCount TO 1",
+        )
+        self.assertRegex(
+            out,
+            r"\n\n# node_id=AgeChecker\.00003\.[0-9a-f]{8}; package=Display; action=inputDialog; resolved=input dialog\nDisplay\.InputDialog ",
+        )
+        self.assertIn("package=Text; action=toNumber; resolved=convert text to number", out)
+        self.assertIn("package=MessageBox; action=messageBox; resolved=show message", out)
+        self.assertIn("ButtonPressed=> ButtonPressed", out)
+
 if __name__ == "__main__":
     unittest.main()
