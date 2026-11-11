@@ -1,22 +1,18 @@
 # node_id=AgeChecker.00001.6f7adcb0; package=String; action=assign; resolved=assign
 SET userAgeText TO $''''''
 
-
 # node_id=AgeChecker.00002.a1cd9c7a; package=Display; action=inputDialog; resolved=input dialog
 Display.InputDialog Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed
-
 
 # node_id=AgeChecker.00003.b953acdd; package=If; action=if; resolved=if
 IF ButtonPressed = $'''OK''' THEN
     # node_id=AgeChecker.00004.3e4589e5; package=Text; action=toNumber; resolved=convert text to number
     Text.ToNumber Text: userAgeText Number=> userAgeText_Num
 
-
     # node_id=AgeChecker.00005.4091e869; package=If; action=if; resolved=if
     IF userAgeText_Num >= 18 THEN
         # node_id=AgeChecker.00006.f7ead4ff; package=MessageBox; action=messageBox; resolved=show message
         Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-
 
     # node_id=AgeChecker.00007.40c91e7e; package=If; action=else; resolved=else
     ELSE
@@ -24,35 +20,3 @@ IF ButtonPressed = $'''OK''' THEN
         Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
     END
 END
- is this pastable
-
-❌ No, this version is not pasteable as-is.
-
-I can see HTML artifacts directly in the text:
-
-
-
-<br>
-and
-
-
-
-UserInput=&gt; userAgeText
-ButtonPressed=&gt; ButtonPressed
-Number=&gt; userAgeText_Num
-IF userAgeText_Num &gt;= 18 THEN
-These must be converted to:
-
-
-
-UserInput=> userAgeText
-ButtonPressed=> ButtonPressed
-Number=> userAgeText_Num
-IF userAgeText_Num >= 18 THEN
-Since your Robin/PAD editor accepts the earlier SET FolderPath TO ... script, this version will likely fail until those HTML artifacts are removed.
-
-Verdict: ❌ Not pasteable in its current form because it contains:
-
-<br>
-&gt;
-A pasteable version would contain neither of those strings.
