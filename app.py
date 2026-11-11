@@ -1,332 +1,141 @@
-import os
-import json
 from pathlib import Path
 import streamlit as st
 
+from converter.project_manager import ProjectManager
 from parser import (
     extract_zip,
-    build_xml_context,
     get_dll_files,
     get_xaml_files,
     get_important_files,
-    get_project_tree
+    get_project_tree,
 )
-
-from llm import convert_to_robin
 
 st.set_page_config(
-    page_title="UiPath Converter",
-    page_icon="🤖",
-    layout="wide"
+    page_title="UiPath → PAD Robin (Pure Python)",
+    page_icon="🐍",
+    layout="wide",
 )
 
-st.title(
-    "UiPath XAML → PAD Robin Converter"
+st.title("UiPath XAML → PAD Robin Converter (Pure Python)")
+st.caption(
+    "Deterministic Python AST conversion. Runs 100% locally with no LLM calls or API keys."
 )
 
 # ==================================================
 # Sidebar
 # ==================================================
-
 with st.sidebar:
-    st.header("🔑 LLM Settings")
-
-    api_key = st.text_input(
-        "API Key",
-        type="password",
-        value=os.environ.get("GEMINI_API_KEY", ""),
-        placeholder="Paste your Gemini or OpenAI API Key...",
-        help="Enter your Google Gemini API Key or OpenAI API Key."
+    st.header("🐍 Pure Python Engine")
+    st.info(
+        "Converts UiPath `.zip`, `.nupkg`, and `.xaml` workflows deterministically "
+        "into clean Power Automate Desktop (Robin) actions using Python AST parsing.\n\n"
+        "No external API keys or LLM calls are used."
     )
-
-    model = st.selectbox(
-        "Select Model",
-        [
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro",
-            "gemini-2.0-flash",
-            "openai.gpt-4o-mini",
-            "openai.gpt-4o"
-        ],
-        index=0,
-        help="Select which AI model will generate the Robin script."
-    )
-
-    st.markdown("---")
-    st.subheader("⚙️ Output Options")
-    include_node_metadata = st.checkbox(
-        "Automation Anywhere Node Syntax (# node_id=...)",
-        value=True,
-        help="Format output using Automation Anywhere node metadata structure (# node_id=<Bot> 1.00001.<hex>; package=...; action=...; resolved=...)."
-    )
-
-    if api_key:
-        st.success(f"✅ Key Configured! Model: **{model}**")
-    else:
-        st.warning("⚠️ Enter API Key to generate Robin script.")
 
 # ==================================================
 # Upload
 # ==================================================
-
 uploaded = st.file_uploader(
-    "Upload UiPath Project (.zip or .nupkg)"
+    "Upload UiPath Project (.zip, .nupkg, or .xaml)",
+    type=["zip", "nupkg", "xaml"],
 )
 
 if uploaded is not None:
+    st.write(f"📄 File Name: `{uploaded.name}`")
+    st.write(f"📦 Content Type: `{uploaded.type}`")
 
-    st.write(
-        f"📄 File Name: {uploaded.name}"
-    )
-
-    st.write(
-        f"📦 Content Type: {uploaded.type}"
-    )
-
-    extension = Path(
-        uploaded.name
-    ).suffix.lower()
-
-    if extension not in [
-        ".zip",
-        ".nupkg"
-    ]:
-        st.error(
-            "Only .zip and .nupkg files are supported."
-        )
+    extension = Path(uploaded.name).suffix.lower()
+    if extension not in [".zip", ".nupkg", ".xaml"]:
+        st.error("Only .zip, .nupkg, and .xaml files are supported.")
         st.stop()
 
     try:
+        pm = ProjectManager()
+        raw_bytes = uploaded.getvalue()
 
-        # ==================================================
-        # Extract
-        # ==================================================
+        if extension in [".zip", ".nupkg"]:
+            project_folder = extract_zip(uploaded)
+            xaml_files = get_xaml_files(project_folder)
+            dlls = get_dll_files(project_folder)
+            important_files = get_important_files(project_folder)
+            project_tree = get_project_tree(project_folder)
 
-        project_folder = extract_zip(
-            uploaded
-        )
-
-        xaml_files = get_xaml_files(
-            project_folder
-        )
-
-        dlls = get_dll_files(
-            project_folder
-        )
-
-        important_files = get_important_files(
-            project_folder
-        )
-
-        project_tree = get_project_tree(
-            project_folder
-        )
-
-        if not xaml_files:
-            st.warning(
-                "No XAML files found inside package."
-            )
-            st.stop()
-
-        # ==================================================
-        # Statistics
-        # ==================================================
-
-        st.subheader(
-            "Project Overview"
-        )
-
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.metric(
-                "XAML Files",
-                len(xaml_files)
-            )
-
-        with col2:
-            st.metric(
-                "DLL Files",
-                len(dlls)
-            )
-
-        with col3:
-            st.metric(
-                "Important Files",
-                len(important_files)
-            )
-
-        with st.expander(
-            "Project Statistics"
-        ):
-            st.write(
-                f"Project Folder: {project_folder}"
-            )
-            st.write(
-                f"Total XAML Files: {len(xaml_files)}"
-            )
-            st.write(
-                f"Total DLL Files: {len(dlls)}"
-            )
-            st.write(
-                f"Important Files: {len(important_files)}"
-            )
-
-        # ==================================================
-        # Project Tree
-        # ==================================================
-
-        with st.expander(
-            "Project Tree Structure"
-        ):
-            st.code(
-                project_tree,
-                language="text"
-            )
-
-        # ==================================================
-        # Important Files
-        # ==================================================
-
-        with st.expander(
-            "Important Files Detected"
-        ):
-            for file in important_files:
-                st.write(file)
-
-        # ==================================================
-        # XAML
-        # ==================================================
-
-        with st.expander(
-            "Detected XAML Files"
-        ):
-            for file in xaml_files:
-                st.write(
-                    Path(file).name
-                )
-
-        # ==================================================
-        # DLL
-        # ==================================================
-
-        with st.expander(
-            "Detected DLL Files"
-        ):
-            if dlls:
-                for dll in dlls:
-                    st.write(
-                        dll
-                    )
-            else:
-                st.info(
-                    "No DLL files found."
-                )
-
-        # ==================================================
-        # Generate
-        # ==================================================
-
-        if st.button(
-            "Generate Robin Script",
-            type="primary",
-            use_container_width=True
-        ):
-
-            if not api_key:
-                st.error("🔑 Please enter your API Key in the left sidebar under 'LLM Settings' before generating.")
+            if not xaml_files:
+                st.warning("No XAML files found inside package.")
                 st.stop()
 
-            with st.spinner(
-                "Reading project files..."
-            ):
-                xml_context = build_xml_context(
-                    project_folder
-                )
-
-                with open(
-                    "full_context.txt",
-                    "w",
-                    encoding="utf-8"
-                ) as f:
-                    f.write(
-                        xml_context
-                    )
-
-                st.success(
-                    f"Loaded {len(xml_context):,} characters from project."
-                )
-
-            # ==================================================
-            # Preview Context
-            # ==================================================
-
-            with st.expander(
-                "Preview Extracted Project Content"
-            ):
-                st.text(
-                    xml_context[:5000]
-                )
-
-            # ==================================================
-            # LLM
-            # ==================================================
-
-            with st.spinner(
-                f"Generating Robin Script with {model}..."
-            ):
-                result = convert_to_robin(
-                    api_key,
-                    model,
-                    xml_context,
-                    dlls,
-                    include_node_metadata=include_node_metadata
-                )
-
-            # ==================================================
-            # Summary
-            # ==================================================
-
-            st.subheader(
-                "Business Summary"
-            )
-
-            st.write(
-                result.get(
-                    "summary",
-                    "No summary generated."
-                )
+            project = pm.process_zip_bytes(
+                raw_bytes,
+                project_name_override=Path(uploaded.name).stem,
             )
 
             # ==================================================
-            # Robin Script
+            # Project Overview
             # ==================================================
+            st.subheader("Project Overview")
+            col1, col2, col3 = st.columns(3)
+            col1.metric("XAML Files", len(xaml_files))
+            col2.metric("DLL Files", len(dlls))
+            col3.metric("Important Files", len(important_files))
 
-            robin_script = result.get(
-                "robin_script",
-                ""
+            with st.expander("Project Statistics"):
+                st.write(f"Project Folder: `{project_folder}`")
+                st.write(f"Total XAML Files: {len(xaml_files)}")
+                st.write(f"Total DLL Files: {len(dlls)}")
+                st.write(f"Important Files: {len(important_files)}")
+
+            with st.expander("Project Tree Structure"):
+                st.code(project_tree, language="text")
+
+            with st.expander("Important Files Detected"):
+                for file in important_files:
+                    st.write(file)
+
+            with st.expander("Detected XAML Files"):
+                for file in xaml_files:
+                    st.write(Path(file).name)
+
+            with st.expander("Detected DLL Files"):
+                if dlls:
+                    for dll in dlls:
+                        st.write(dll)
+                else:
+                    st.info("No DLL files found.")
+        else:
+            raw_xaml = raw_bytes.decode("utf-8", errors="ignore")
+            project = pm.process_single_xaml(raw_xaml, filename=uploaded.name)
+            st.subheader("Project Overview")
+            st.metric("XAML Workflows", len(project.workflows))
+
+        # ==================================================
+        # Generate Clean Robin Script (Pure Python)
+        # ==================================================
+        if st.button("Generate Robin Script", type="primary", use_container_width=True):
+            robin_script = pm.get_clean_pasteable_robin(project)
+            total_act = project.total_activities
+            mapped_act = project.total_mapped
+            success_rate = round((mapped_act / total_act) * 100.0, 1) if total_act else 100.0
+
+            st.success("🐍 **Generated by Pure Python Deterministic AST Engine**")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Workflows", len(project.workflows))
+            c2.metric("Total Activities", total_act)
+            c3.metric("Mapped", mapped_act)
+            c4.metric("Success Rate", f"{success_rate}%")
+
+            st.subheader("Conversion Summary")
+            wf_names = ", ".join(wf.display_name for wf in project.workflows) or project.name
+            summary_text = (
+                f"**Project:** `{project.name}` (`{project.target_framework}`)  \n"
+                f"**Workflows Converted ({len(project.workflows)}):** {wf_names}  \n"
+                f"**Activities Mapped:** {mapped_act}/{total_act} ({success_rate}%)"
             )
+            if project.description:
+                summary_text += f"  \n**Description:** {project.description}"
+            st.write(summary_text)
 
-            if isinstance(
-                robin_script,
-                (list, dict)
-            ):
-                robin_script = json.dumps(
-                    robin_script,
-                    indent=2,
-                    ensure_ascii=False
-                )
-
-            robin_script = str(
-                robin_script
-            )
-
-            st.subheader(
-                "Generated Robin Script"
-            )
-
+            st.subheader("Generated Robin Script")
             st.info(
                 "💡 **How to Paste into Power Automate Desktop (PAD):**\n"
                 "1. Click the **Copy** icon in the top right corner of the code box below.\n"
@@ -336,39 +145,20 @@ if uploaded is not None:
                 "5. All actions will instantly convert into native Power Automate visual action cards!"
             )
 
-            st.code(
-                robin_script,
-                language="text"
-            )
+            st.code(robin_script, language="text")
 
             st.download_button(
                 label="Download Robin Script (.txt)",
-                data=robin_script.encode(
-                    "utf-8"
-                ),
-                file_name="robin_script.txt",
-                mime="text/plain"
+                data=robin_script.encode("utf-8"),
+                file_name=f"{project.name or 'robin_script'}.txt",
+                mime="text/plain",
             )
 
-        # ==================================================
-        # Raw Response
-        # ==================================================
-
-        if Path(
-            "model_response.txt"
-        ).exists():
-            with st.expander(
-                "Raw Model Response"
-            ):
-                st.text(
-                    Path(
-                        "model_response.txt"
-                    ).read_text(
-                        encoding="utf-8"
-                    )[:10000]
-                )
+            if len(project.workflows) > 1:
+                with st.expander("Individual Workflow Scripts (Single-Canvas Copy)"):
+                    for wf in project.workflows:
+                        st.markdown(f"**{wf.filename}** ({wf.mapped_count}/{len(wf.all_activities)} mapped)")
+                        st.code(wf.robin_script, language="text")
 
     except Exception as ex:
-        st.error(
-            f"Error: {str(ex)}"
-        )
+        st.error(f"Error: {str(ex)}")

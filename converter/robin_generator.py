@@ -1,6 +1,6 @@
 import re
 import hashlib
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 from .models import WorkflowFile, ParsedActivity, ParsedVariable, ParsedArgument, ParsedSelector, ProjectMetadata
 from .activity_converter import (
     indent_lines,
@@ -43,6 +43,7 @@ from .activity_converter import (
 )
 from .expression_parser import (
     convert_uipath_condition_to_robin,
+    convert_uipath_condition_with_casts,
     convert_uipath_expression_to_robin,
     clean_uipath_expression
 )
@@ -80,8 +81,8 @@ PACKAGE_MAP = {
 class RobinGenerator:
     def __init__(
         self,
-        include_comments: bool = True,
-        include_selectors_header: bool = True,
+        include_comments: bool = False,
+        include_selectors_header: bool = False,
         include_node_metadata: bool = False
     ):
         self.include_comments = include_comments
@@ -89,6 +90,42 @@ class RobinGenerator:
         self.include_node_metadata = include_node_metadata
         self.current_workflow_name = "Workflow"
         self.node_counter = 1
+        self.input_dialog_vars: Set[str] = set()
+        self.text_vars: Set[str] = set()
+        self.active_dialog_var: Optional[str] = None
+
+    @staticmethod
+    def _join_clean_blocks(blocks: List[str]) -> str:
+        """Join converted script blocks removing empty/whitespace-only lines."""
+        lines: List[str] = []
+        for block in blocks:
+            if not block:
+                continue
+            for line in block.splitlines():
+                if line.strip():
+                    lines.append(line.rstrip())
+        return "\n".join(lines)
+
+    def _wrap_with_numeric_casts(
+        self,
+        block_lines: List[str],
+        cast_vars: List[str],
+        saved_dialog_var: Optional[str],
+    ) -> List[str]:
+        """Prepend Text.ToNumber conversions and guard active InputDialog variables with OK check."""
+        if not cast_vars:
+            return block_lines
+
+        conv_lines = [f"Text.ToNumber Text: {v} Number=> {v}_Num" for v in cast_vars]
+        combined = conv_lines + block_lines
+        if saved_dialog_var and saved_dialog_var in cast_vars:
+            inner = indent_lines("\n".join(combined), 1)
+            return [
+                "IF ButtonPressed = $'''OK''' THEN",
+                inner,
+                "END",
+            ]
+        return combined
 
     def _create_node_comment(self, package: str, action: str, resolved: str) -> str:
         """Create a structured Automation Anywhere / Robin node metadata comment."""
@@ -102,84 +139,56 @@ class RobinGenerator:
         """Generate Robin script for a single workflow file."""
         self.current_workflow_name = re.sub(r'[^a-zA-Z0-9_]', '_', wf.display_name) or "Workflow"
         self.node_counter = 1
-        lines: List[str] = []
-        
-        # Header comments
-        if self.include_comments:
-            lines.append(f"# ========================================================")
-            lines.append(f"# Converted from UiPath Workflow: {wf.filename}")
-            if wf.arguments:
-                lines.append(f"# Arguments ({len(wf.arguments)}):")
-                for arg in wf.arguments:
-                    lines.append(f"#   - [{arg.direction}] %{arg.name}% ({arg.type_name})")
-            if wf.variables:
-                lines.append(f"# Variables ({len(wf.variables)}):")
-                for var in wf.variables:
-                    lines.append(f"#   - %{var.name}% ({var.type_name})")
-            lines.append(f"# ========================================================")
-            lines.append("")
+        self.input_dialog_vars = set()
+        self.text_vars = {
+            v.name
+            for v in wf.variables
+            if any(tok in v.type_name.lower() for tok in ("string", "text"))
+        }
+        self.active_dialog_var = None
 
         action_lines: List[str] = []
 
-        if self.include_node_metadata:
-            banner_comment = self._create_node_comment("Comment", "Comment", "comment")
-            action_lines.append(banner_comment)
-            action_lines.append(f"# ********************************************************TASK NAME: {self.current_workflow_name} ****************************************************************************************************************************************************")
-            action_lines.append("")
-
-        # Variable initializations
+        # Variable initializations (strictly executable SET statements, no decorative comments/blank lines)
         if wf.variables:
-            action_lines.append("# --- Initialize Variables ---")
-            action_lines.append("")
             for var in wf.variables:
                 vtype = var.type_name.lower()
-                if "int" in vtype or "num" in vtype or "double" in vtype:
+                if "int" in vtype or "num" in vtype or "double" in vtype or "decimal" in vtype or "single" in vtype:
                     var_pkg = "Number"
-                    act = "assignToNumber"
                 elif "bool" in vtype:
                     var_pkg = "Boolean"
-                    act = "assign"
                 elif "list" in vtype or "array" in vtype:
                     var_pkg = "List"
-                    act = "assign"
                 elif "datatable" in vtype:
                     var_pkg = "DataTable"
-                    act = "assign"
                 elif "jobject" in vtype or "customobject" in vtype:
                     var_pkg = "CustomObject"
-                    act = "assign"
                 else:
                     var_pkg = "String"
-                    act = "assign"
-
-                if self.include_node_metadata:
-                    action_lines.append(self._create_node_comment(var_pkg, act, "assign"))
 
                 if var.default_value and var.default_value != "{x:Null}":
                     val = convert_uipath_expression_to_robin(var.default_value)
                     action_lines.append(f"SET {var.name} TO {val}")
                 elif var_pkg == "Boolean":
-                    action_lines.append(f"SET {var.name} TO $'''constant'''")
+                    action_lines.append(f"SET {var.name} TO False")
                 elif var_pkg == "Number":
-                    action_lines.append(f"SET {var.name} TO $'''0'''")
+                    action_lines.append(f"SET {var.name} TO 0")
                 else:
                     action_lines.append(f"SET {var.name} TO $''''''")
-                action_lines.append("")
 
         # Convert root activity and its tree
         if wf.root_activity:
             converted_tree = self._convert_activity(wf.root_activity)
             if converted_tree:
                 action_lines.append(converted_tree)
-        else:
-            action_lines.append("# No executable activities found in workflow.")
 
-        body = "\n".join(action_lines)
+        body = self._join_clean_blocks(action_lines)
 
         if as_subflow:
             subflow_name = re.sub(r'[^a-zA-Z0-9_]', '_', wf.display_name)
             subflow_code = f"FUNCTION {subflow_name}\n"
-            subflow_code += indent_lines(body, level=1) + "\n"
+            if body:
+                subflow_code += indent_lines(body, level=1) + "\n"
             subflow_code += "END FUNCTION"
             wf.subflow_robin = subflow_code
             return subflow_code
@@ -188,37 +197,10 @@ class RobinGenerator:
             return body
 
     def generate_full_project(self, project: ProjectMetadata) -> str:
-        """Generate a complete Power Automate Desktop flow script with all subflows."""
+        """Generate a clean Power Automate Desktop Robin script ready for Ctrl+V canvas paste."""
         output_parts: List[str] = []
 
-        # 1. Header & Project Info
-        if self.include_comments:
-            output_parts.append("# ========================================================")
-            output_parts.append(f"# POWER AUTOMATE DESKTOP (ROBIN SCRIPT)")
-            output_parts.append(f"# Project: {project.name}")
-            output_parts.append(f"# Total Workflows: {len(project.workflows)}")
-            output_parts.append(f"# Total Activities: {project.total_activities}")
-            output_parts.append(f"# Conversion Success Rate: {(project.total_mapped / max(1, project.total_activities) * 100):.1f}%")
-            output_parts.append("# Instructions: Copy all text below and paste (Ctrl+V) into")
-            output_parts.append("# Power Automate Desktop flow designer canvas.")
-            output_parts.append("# ========================================================")
-            output_parts.append("")
-
-        # 2. Control Repository / Selectors
-        if self.include_selectors_header and project.all_selectors:
-            output_parts.append("# [ControlRepositoryFolder]")
-            output_parts.append("# --- UI Elements Mapped from UiPath Selectors ---")
-            for sel in project.all_selectors:
-                output_parts.append(f"# Control: {sel.control_code}")
-                if sel.xpath:
-                    output_parts.append(f"#   XPath: {sel.xpath}")
-                if sel.css:
-                    output_parts.append(f"#   CSS: {sel.css}")
-                clean_raw = sel.uipath_raw.replace("\n", " ").strip()
-                output_parts.append(f"#   UiPath: {clean_raw}")
-            output_parts.append("")
-
-        # 3. Main Workflow
+        # Main Workflow
         main_wf = None
         other_wfs = []
         for wf in project.workflows:
@@ -235,22 +217,33 @@ class RobinGenerator:
             # Emit bare actions for single-flow bots for direct Ctrl+V canvas paste in PAD
             as_sub = len(other_wfs) > 0
             output_parts.append(self.generate_for_workflow(main_wf, as_subflow=as_sub))
-            output_parts.append("")
 
-        # 4. Other subflows
+        # Other subflows
         for wf in other_wfs:
             output_parts.append(self.generate_for_workflow(wf, as_subflow=True))
-            output_parts.append("")
 
-        return "\n".join([p for p in output_parts if p.strip()]).strip()
+        return self._join_clean_blocks(output_parts)
 
     def generate_clean_pasteable_script(self, project: ProjectMetadata) -> str:
         """
-        Generate a 100% clean, pure PAD Robin script containing ONLY executable actions,
-        strictly compatible with Power Automate Desktop clipboard Ctrl+V parsing.
+        Generate a 100% clean, pure PAD Robin script containing ONLY executable actions
+        (plus genuine source comments), strictly compatible with Power Automate Desktop Ctrl+V.
         """
-        clean_gen = RobinGenerator(include_comments=False, include_selectors_header=False)
+        clean_gen = RobinGenerator(
+            include_comments=False,
+            include_selectors_header=False,
+            include_node_metadata=False,
+        )
         return clean_gen.generate_full_project(project)
+
+    def _convert_children(self, children: List[ParsedActivity]) -> str:
+        """Convert child activities cleanly without double-evaluating nodes."""
+        blocks: List[str] = []
+        for c in children:
+            code = self._convert_activity(c)
+            if code and code.strip():
+                blocks.append(code)
+        return self._join_clean_blocks(blocks)
 
     def _convert_activity(self, activity: ParsedActivity) -> str:
         """Convert a ParsedActivity and its children into Robin script."""
@@ -286,46 +279,50 @@ class RobinGenerator:
                         inner_lines.append(wrapped_block)
                         child.is_mapped = True
                         msg_child.is_mapped = True
+                        self.text_vars.discard(status_var)
+                        self.active_dialog_var = None
                         i += 2
                         continue
-                        
+
                 c_code = self._convert_activity(child)
-                if c_code:
+                if c_code and c_code.strip():
                     inner_lines.append(c_code)
                 i += 1
-                
+
             activity.is_mapped = True
-            return "\n".join(inner_lines)
+            return self._join_clean_blocks(inner_lines)
 
         # 2. Control Flow: If
         if tag == "If":
             cond = str(activity.properties.get("Condition", "True"))
-            robin_cond = convert_uipath_condition_to_robin(cond)
-            
+            robin_cond, cast_vars = convert_uipath_condition_with_casts(
+                cond,
+                text_vars=self.text_vars | self.input_dialog_vars,
+            )
+
             then_children = [c for c in activity.children if c.properties.get("_branch") == "Then"]
             else_children = [c for c in activity.children if c.properties.get("_branch") == "Else"]
-            
-            then_code = "\n".join([self._convert_activity(c) for c in then_children if self._convert_activity(c)])
-            else_code = "\n".join([self._convert_activity(c) for c in else_children if self._convert_activity(c)])
-            
-            res = []
-            if self.include_node_metadata:
-                res.append(self._create_node_comment("If", "if", "if"))
-            res.append(f"IF {robin_cond} THEN")
+
+            saved_dialog_var = self.active_dialog_var
+            then_code = self._convert_children(then_children)
+            self.active_dialog_var = saved_dialog_var
+            else_code = self._convert_children(else_children)
+            self.active_dialog_var = None
+
+            res = [f"IF {robin_cond} THEN"]
             if then_code:
                 res.append(indent_lines(then_code, 1))
             else:
                 res.append("    # Empty Then block")
-                
+
             if else_code:
-                if self.include_node_metadata:
-                    res.append(f"\n{self._create_node_comment('If', 'else', 'else')}")
                 res.append("ELSE")
                 res.append(indent_lines(else_code, 1))
-                
+
             res.append("END")
+            res = self._wrap_with_numeric_casts(res, cast_vars, saved_dialog_var)
             activity.is_mapped = True
-            activity.robin_code = "\n".join(res)
+            activity.robin_code = self._join_clean_blocks(res)
             return activity.robin_code
 
         # 3. Control Flow: Switch
@@ -333,12 +330,12 @@ class RobinGenerator:
             expr = str(activity.properties.get("Expression", "department"))
             robin_expr = clean_uipath_expression(expr)
             lines = [f"SWITCH %{robin_expr}%"]
-            
+
             for child in activity.children:
                 branch = child.properties.get("_branch")
                 case_key = child.properties.get("_case_key")
                 inner_code = self._convert_activity(child)
-                
+
                 if branch == "Case" or case_key:
                     val_code = convert_uipath_expression_to_robin(str(case_key))
                     lines.append(f"    CASE {val_code}")
@@ -351,10 +348,10 @@ class RobinGenerator:
                 else:
                     if inner_code:
                         lines.append(indent_lines(inner_code, 1))
-                        
+
             lines.append("END SWITCH")
             activity.is_mapped = True
-            activity.robin_code = "\n".join(lines)
+            activity.robin_code = self._join_clean_blocks(lines)
             return activity.robin_code
 
         # 4. Loops: ForEach, ForEachRow, While, DoWhile
@@ -362,8 +359,8 @@ class RobinGenerator:
             coll = str(activity.properties.get("Values") or activity.properties.get("DataTable") or "Items")
             coll_clean = clean_uipath_expression(coll)
             item_name = "CurrentItem" if tag == "ForEach" else "CurrentRow"
-            
-            inner_code = "\n".join([self._convert_activity(c) for c in activity.children if self._convert_activity(c)])
+
+            inner_code = self._convert_children(activity.children)
             res = [f"LOOP FOREACH {item_name} IN {coll_clean}"]
             if inner_code:
                 res.append(indent_lines(inner_code, 1))
@@ -371,23 +368,26 @@ class RobinGenerator:
                 res.append("    # Loop body")
             res.append("END")
             activity.is_mapped = True
-            if self.include_node_metadata:
-                res.insert(0, self._create_node_comment("Loop", "loop", "loop foreach"))
-            activity.robin_code = "\n".join(res)
+            activity.robin_code = self._join_clean_blocks(res)
             return activity.robin_code
 
         if tag in ["While", "DoWhile"]:
             cond = str(activity.properties.get("Condition", "True"))
-            robin_cond = convert_uipath_condition_to_robin(cond)
-            inner_code = "\n".join([self._convert_activity(c) for c in activity.children if self._convert_activity(c)])
+            robin_cond, cast_vars = convert_uipath_condition_with_casts(
+                cond,
+                text_vars=self.text_vars | self.input_dialog_vars,
+            )
+            saved_dialog_var = self.active_dialog_var
+            inner_code = self._convert_children(activity.children)
+            self.active_dialog_var = None
+
             res = [f"LOOP WHILE {robin_cond}"]
             if inner_code:
                 res.append(indent_lines(inner_code, 1))
             res.append("END")
+            res = self._wrap_with_numeric_casts(res, cast_vars, saved_dialog_var)
             activity.is_mapped = True
-            if self.include_node_metadata:
-                res.insert(0, self._create_node_comment("Loop", "loop", "loop while"))
-            activity.robin_code = "\n".join(res)
+            activity.robin_code = self._join_clean_blocks(res)
             return activity.robin_code
 
         # 5. TryCatch
@@ -395,11 +395,11 @@ class RobinGenerator:
             try_children = [c for c in activity.children if c.properties.get("_branch") == "Try"]
             catch_children = [c for c in activity.children if c.properties.get("_branch") == "Catch"]
             finally_children = [c for c in activity.children if c.properties.get("_branch") == "Finally"]
-            
-            try_code = "\n".join([self._convert_activity(c) for c in try_children if self._convert_activity(c)])
-            catch_code = "\n".join([self._convert_activity(c) for c in catch_children if self._convert_activity(c)])
-            finally_code = "\n".join([self._convert_activity(c) for c in finally_children if self._convert_activity(c)])
-            
+
+            try_code = self._convert_children(try_children)
+            catch_code = self._convert_children(catch_children)
+            finally_code = self._convert_children(finally_children)
+
             res = ["# [Try Block Start]"]
             if try_code:
                 res.append(try_code)
@@ -411,24 +411,24 @@ class RobinGenerator:
                 res.append(finally_code)
             res.append("# [Try Block End]")
             activity.is_mapped = True
-            activity.robin_code = "\n".join(res)
+            activity.robin_code = self._join_clean_blocks(res)
             return activity.robin_code
 
         # 6. OpenBrowser / UseApplicationOrBrowser
         if tag in ["OpenBrowser", "UseApplicationOrBrowser"]:
-            inner_code = "\n".join([self._convert_activity(c) for c in activity.children if self._convert_activity(c)])
+            inner_code = self._convert_children(activity.children)
             code = convert_open_browser(activity, inner_code)
             activity.is_mapped = True
-            activity.robin_code = code
-            return code
+            activity.robin_code = self._join_clean_blocks([code])
+            return activity.robin_code
 
         # 7. ExcelApplicationScope / ExcelApplicationCard
         if tag in ["ExcelApplicationScope", "ExcelApplicationCard"]:
-            inner_code = "\n".join([self._convert_activity(c) for c in activity.children if self._convert_activity(c)])
+            inner_code = self._convert_children(activity.children)
             code = convert_excel_scope(activity, inner_code)
             activity.is_mapped = True
-            activity.robin_code = code
-            return code
+            activity.robin_code = self._join_clean_blocks([code])
+            return activity.robin_code
 
         # 8. Discrete Activity Mappings
         mapping_funcs = {
@@ -484,12 +484,30 @@ class RobinGenerator:
         if tag in mapping_funcs:
             code = mapping_funcs[tag](activity)
             activity.is_mapped = True
-            if self.include_node_metadata and code:
-                pkg, action, resolved = PACKAGE_MAP.get(tag, ("Core", tag, tag.lower()))
-                meta_comment = self._create_node_comment(pkg, action, resolved)
-                code = f"{meta_comment}\n{code}"
-            activity.robin_code = code
-            return code
+
+            # Track InputDialog / text variable state for Text.ToNumber + Cancel guard
+            if tag == "InputDialog":
+                res_var = re.sub(r'[\[\]]', '', str(activity.properties.get("Result", "UserInput"))).strip() or "UserInput"
+                self.input_dialog_vars.add(res_var)
+                self.text_vars.add(res_var)
+                self.active_dialog_var = res_var
+            elif tag == "MessageBox":
+                self.active_dialog_var = None
+            elif tag in ("Assign", "MultipleAssign"):
+                to_var = clean_uipath_expression(str(activity.properties.get("To", ""))).strip()
+                to_var = re.sub(r'[\[\]]', '', to_var).strip()
+                if to_var:
+                    if code.startswith(f"SET {to_var} TO $'''"):
+                        self.text_vars.add(to_var)
+                        self.input_dialog_vars.discard(to_var)
+                    elif code.startswith(f"SET {to_var} TO "):
+                        rhs = code[len(f"SET {to_var} TO "):].strip()
+                        if re.match(r'^-?\d+(?:\.\d+)?$', rhs) or ".Count%" in rhs or ".Length%" in rhs:
+                            self.text_vars.discard(to_var)
+                            self.input_dialog_vars.discard(to_var)
+
+            activity.robin_code = self._join_clean_blocks([code]) if code else ""
+            return activity.robin_code
 
         # Unmapped / Custom Activity Fallback
         activity.is_mapped = False

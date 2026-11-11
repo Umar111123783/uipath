@@ -231,31 +231,31 @@ def convert_navigate_to(activity: ParsedActivity) -> str:
     robin_url = convert_uipath_expression_to_robin(url)
     return f"WebAutomation.Navigate BrowserInstance: Browser Url: {robin_url}"
 
-def convert_click(activity: ParsedActivity) -> str:
+def convert_click(activity: ParsedActivity, include_comments: bool = False) -> str:
     ctrl, xpath, raw_sel = get_target_selector_info(activity)
-    comment = f" # XPath: {xpath}" if xpath else ""
+    comment = f" # XPath: {xpath}" if (include_comments and xpath) else ""
     return (
         f"WebAutomation.Click.Click BrowserInstance: Browser Control: {ctrl} "
         f"ClickType: WebAutomation.ClickType.LeftClick MouseClick: False "
         f"WaitForPageLoadTimeout: 60 Timeout: 60{comment}"
     )
 
-def convert_type_into(activity: ParsedActivity) -> str:
+def convert_type_into(activity: ParsedActivity, include_comments: bool = False) -> str:
     text = str(get_prop(activity, "Text", ""))
     robin_text = convert_uipath_expression_to_robin(text)
     ctrl, xpath, _ = get_target_selector_info(activity)
-    comment = f" # XPath: {xpath}" if xpath else ""
+    comment = f" # XPath: {xpath}" if (include_comments and xpath) else ""
     return (
         f"WebAutomation.FormFilling.PopulateTextField.Populate BrowserInstance: Browser "
         f"Control: {ctrl} Text: {robin_text} Mode: WebAutomation.PopulateTextMode.Replace "
         f"WaitForPageLoadTimeout: 60 Timeout: 60{comment}"
     )
 
-def convert_get_value(activity: ParsedActivity) -> str:
+def convert_get_value(activity: ParsedActivity, include_comments: bool = False) -> str:
     out_var = clean_uipath_expression(str(get_prop(activity, "Value", "ExtractedText")))
     out_var = re.sub(r'[\[\]]', '', out_var).strip() or "ExtractedText"
     ctrl, xpath, _ = get_target_selector_info(activity)
-    comment = f" # XPath: {xpath}" if xpath else ""
+    comment = f" # XPath: {xpath}" if (include_comments and xpath) else ""
     return (
         f"WebAutomation.DataExtraction.GetDetailsOfElement BrowserInstance: Browser "
         f"Control: {ctrl} AttributeName: $'''OwnText''' AttributeValue=> {out_var}{comment}"
@@ -302,12 +302,10 @@ def convert_write_range(activity: ParsedActivity) -> str:
     sheet_name = m_sheet.group(1) if m_sheet else "Sheet1"
     return (
         f"Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''{sheet_name}'''\n"
-        f"# --- Write Column Headers to Worksheet ---\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''userId''' Column: 1 Row: 1\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''id''' Column: 2 Row: 1\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''title''' Column: 3 Row: 1\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''body''' Column: 4 Row: 1\n"
-        f"# --- Write DataTable Records starting at Row 2 ---\n"
         f"Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: %{in_dt}% Column: 1 Row: 2"
     )
 
@@ -411,6 +409,13 @@ def convert_continue(activity: ParsedActivity) -> str:
     return "NEXT LOOP"
 
 def convert_comment(activity: ParsedActivity) -> str:
-    text = str(get_prop(activity, "Text", "")) or str(get_prop(activity, "DisplayName", "Comment"))
-    clean_text = text.replace("\n", " ").strip()
-    return f"# [UiPath Note]: {clean_text}"
+    text = str(get_prop(activity, "Text", "")) or str(get_prop(activity, "DisplayName", ""))
+    clean_text = re.sub(r'\s+', ' ', text).strip()
+    if (
+        not clean_text
+        or re.match(r'^[\*\-=\s_#]+$', clean_text)
+        or re.match(r'^[-*=_]{3,}.*?[-*=_]{3,}$', clean_text)
+        or clean_text.lower() == "comment"
+    ):
+        return ""
+    return f"# {clean_text}"

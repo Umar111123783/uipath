@@ -1,5 +1,5 @@
 import re
-from typing import Tuple, List
+from typing import Tuple, List, Optional, Set
 
 def parse_uipath_duration(duration_str: str) -> float:
     """
@@ -224,58 +224,113 @@ def convert_uipath_expression_to_robin(raw_expr: str) -> str:
     # For general expressions, wrap in %...% for PAD
     return f"%{expr}%"
 
-def convert_uipath_condition_to_robin(raw_cond: str) -> str:
+_NUMERIC_CAST_RE = re.compile(
+    r'\b(?:CInt|CLng|CSng|CDbl|Convert\.ToInt32|Convert\.ToInt64|Convert\.ToDouble|Convert\.ToDecimal|Int32\.Parse|Double\.Parse|Decimal\.Parse)\s*\(\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\)',
+    re.IGNORECASE,
+)
+
+
+def _convert_condition_core(
+    raw_cond: str,
+    text_vars: Optional[Set[str]] = None,
+    rewrite_casts: bool = False,
+) -> Tuple[str, List[str]]:
     """
-    Convert a UiPath condition expression (VB.NET) to Robin IF condition syntax.
-    VB.NET:
-      x > 5 AndAlso y < 10
-      CInt(userAgeText) >= 18
-      rowStatus.ToString.Trim.Equals("Completed", StringComparison.OrdinalIgnoreCase)
-      String.IsNullOrEmpty(employeeEmail)
-    PAD Robin:
-      x > 5 AND y < 10
-      userAgeText >= 18
-      rowStatus = $'''Completed'''
-      employeeEmail = $''''''
+    Core VB.NET -> Robin condition translator.
+    When rewrite_casts=True, converts explicit numeric casts and numeric
+    comparisons on known text variables to `<var>_Num` and returns the ordered
+    list of variables requiring Text.ToNumber conversion.
     """
     if not raw_cond:
-        return "True"
-        
+        return "True", []
+
     cond = clean_uipath_expression(raw_cond)
-    
-    # Strip CInt(...) or Convert.ToInt32(...)
-    cond = re.sub(r'\bCInt\s*\(\s*([a-zA-Z0-9_]+)\s*\)', r'\1', cond)
-    cond = re.sub(r'\bConvert\.ToInt32\s*\(\s*([a-zA-Z0-9_]+)\s*\)', r'\1', cond)
-    
+    cast_vars: List[str] = []
+
+    def repl_cast(m: re.Match) -> str:
+        var_name = m.group(1)
+        if not rewrite_casts:
+            return var_name
+        if var_name not in cast_vars:
+            cast_vars.append(var_name)
+        return f"{var_name}_Num"
+
+    cond = _NUMERIC_CAST_RE.sub(repl_cast, cond)
+
     # Handle .Equals("val", StringComparison...)
     equals_match = re.search(r'([a-zA-Z0-9_]+)(?:\.ToString)?(?:\.Trim)?\.Equals\s*\(\s*"([^"]+)"[^)]*\)', cond)
     if equals_match:
         var_n = equals_match.group(1)
         val_n = equals_match.group(2)
         cond = cond.replace(equals_match.group(0), f"{var_n} = $'''{val_n}'''")
-        
+
     # Replace String.IsNullOrEmpty(var)
     null_match = re.search(r'String\.IsNullOrEmpty\s*\(\s*([a-zA-Z0-9_]+)\s*\)', cond)
     if null_match:
         var_name = null_match.group(1)
         cond = cond.replace(null_match.group(0), f"{var_name} = $''''''")
-        
+
     # Replace VB logical operators with PAD operators
     cond = re.sub(r'\bAndAlso\b', 'AND', cond, flags=re.IGNORECASE)
     cond = re.sub(r'\bOrElse\b', 'OR', cond, flags=re.IGNORECASE)
     cond = re.sub(r'\bAnd\b', 'AND', cond, flags=re.IGNORECASE)
     cond = re.sub(r'\bOr\b', 'OR', cond, flags=re.IGNORECASE)
     cond = re.sub(r'\bNot\b', 'NOT', cond, flags=re.IGNORECASE)
-    
+
     # Replace equality comparison == with = (Robin uses =)
     cond = re.sub(r'\s*==\s*', ' = ', cond)
-    
+
     # Replace empty string "" with $''''''
     cond = cond.replace('""', "$''''''")
-    
+
     # Replace string literals "text" with $'''text'''
-    def repl_str(m):
+    def repl_str(m: re.Match) -> str:
         return f"$'''{m.group(1)}'''"
+
     cond = re.sub(r'"([^"]*)"', repl_str, cond)
-    
-    return cond.strip()
+
+    if rewrite_casts and text_vars:
+        # Mask Robin string literals before scanning for numeric comparisons
+        masked_literals: List[str] = []
+
+        def mask_lit(m: re.Match) -> str:
+            idx = len(masked_literals)
+            masked_literals.append(m.group(0))
+            return f"__ROBIN_LIT_{idx}__"
+
+        masked_cond = re.sub(r"\$'''.*?'''", mask_lit, cond)
+        for v in sorted(text_vars):
+            esc = re.escape(v)
+            lhs_pat = re.compile(rf'\b{esc}(\s*(?:>=|<=|>|<)\s*-?\d+(?:\.\d+)?)\b')
+            rhs_pat = re.compile(rf'(\b-?\d+(?:\.\d+)?\s*(?:>=|<=|>|<)\s*){esc}\b')
+            new_masked, n1 = lhs_pat.subn(rf'{v}_Num\1', masked_cond)
+            new_masked, n2 = rhs_pat.subn(rf'\g<1>{v}_Num', new_masked)
+            if (n1 + n2) > 0:
+                if v not in cast_vars:
+                    cast_vars.append(v)
+                masked_cond = new_masked
+
+        for idx, lit in enumerate(masked_literals):
+            masked_cond = masked_cond.replace(f"__ROBIN_LIT_{idx}__", lit)
+        cond = masked_cond
+
+    return cond.strip(), cast_vars
+
+
+def convert_uipath_condition_to_robin(raw_cond: str) -> str:
+    """
+    Convert a UiPath condition expression (VB.NET) to Robin IF condition syntax.
+    """
+    cond, _ = _convert_condition_core(raw_cond, text_vars=None, rewrite_casts=False)
+    return cond
+
+
+def convert_uipath_condition_with_casts(
+    raw_cond: str,
+    text_vars: Optional[Set[str]] = None,
+) -> Tuple[str, List[str]]:
+    """
+    Convert a UiPath condition expression to Robin IF condition syntax and return
+    (robin_condition, vars_needing_text_to_number).
+    """
+    return _convert_condition_core(raw_cond, text_vars=text_vars, rewrite_casts=True)

@@ -1,10 +1,10 @@
-import os
 import re
 import json
+import time
 import requests
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from converter.project_manager import ProjectManager
+from typing import List, Dict, Any, Optional, Tuple
+from parser import sanitize_robin_script
 
 SYSTEM_PROMPT = """You are an expert RPA migration engineer specialized in converting UiPath projects (XAML workflows, dependencies, selectors) into native Microsoft Power Automate Desktop (PAD) Robin language scripts.
 
@@ -13,19 +13,22 @@ You will receive the complete extracted context of a UiPath project, including p
 Your output MUST be a JSON object with two fields:
 {
   "summary": "A concise executive business and technical summary of what this UiPath bot does, its inputs, outputs, activities mapped, and how it was translated to Power Automate Desktop.",
-  "robin_script": "The complete, production-grade Power Automate Desktop (Robin) script ready to be pasted (Ctrl+V) directly into the Power Automate Desktop designer canvas."
+  "robin_script": "The complete, clean Power Automate Desktop (Robin) script ready to be pasted (Ctrl+V) directly into the Power Automate Desktop designer canvas."
 }
 
 CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
-1. CANVAS PASTE FORMAT (NO FUNCTION MAIN):
+1. CLEAN CANVAS PASTE FORMAT (NO HEADERS, DEBUG COMMENTS, OR FUNCTION MAIN):
    - For direct Ctrl+V pasting into the PAD designer canvas, do NOT wrap the main flow in 'FUNCTION Main ... END FUNCTION'. Output top-level bare action lines sequentially.
    - Subflows (if any other than Main exist) may be appended at the bottom using 'FUNCTION SubflowName ... END FUNCTION'.
-   - Do NOT output stray markdown or banner blocks like '# =======...'.
+   - Do NOT emit header banners ('# POWER AUTOMATE DESKTOP...', '# Project:...', '# Instructions:...'), '# node_id=...' metadata lines, '# Converted from...', or decorative '# ====' / '# ****' / '# ---' divider comments (such as '# --- Initialize Variables ---').
+   - Only emit '# ...' lines for genuine Comment or Log activities from the source bot (every '#' line becomes a Comment action on the PAD canvas).
+   - Do NOT output markdown fences or blank lines inside blocks.
 
 2. EXACT NATIVE PAD ACTION IDENTIFIERS:
    - Web service: Web.InvokeWebService.InvokeWebService Url: $'''...''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
    - Messages: Display.ShowMessageDialog.ShowMessage Title: $'''...''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
    - Inputs: Display.InputDialog Title: $'''...''' Message: $'''...''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> VarName ButtonPressed=> ButtonPressed
+   - Convert text to number: Text.ToNumber Text: SourceTextVar Number=> TargetNumVar
    - Delays: Wait Delay: 2 (delay in seconds, never WAIT TODO_DURATION)
    - Stop execution on critical failure: FlowControl.StopFlow Execution: FlowControl.StopFlowMode.StopNormally
    - Create DataTable: Variables.CreateNewDatatable InputTable: { ^['Col1', 'Col2'] } DataTable=> dtPosts
@@ -36,16 +39,26 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
    - Every action statement MUST be strictly on a SINGLE CONTIGUOUS LINE.
    - Never insert a physical line break inside an action or inside a string parameter. For newlines in dialogs, use '\\r\\n' escape characters.
 
-4. CONTROL FLOW & COMPLETE BLOCKS:
+4. CONTROL FLOW, INDENTATION & CLEAN BLOCKS:
    - Every IF statement MUST have a matching END statement (IF ... THEN ... ELSE ... END).
    - Every LOOP statement MUST have a matching END statement.
+   - Use consistent 4-space indentation inside IF / ELSE IF / ELSE / END, LOOP / END, and SWITCH blocks, with no blank lines inside blocks.
 
-5. VARIABLE SYNTAX:
-   - PAD variables use percent signs: %VariableName% (NEVER Automation Anywhere $Var$ or .NET constructors).
-   - Set variables using: SET VarName TO Value.
+5. VARIABLE SYNTAX & NUMERIC CONVERSION OF TEXT INPUTS:
+   - Reference bare variable names in SET, Text:, and IF/LOOP conditions (e.g. SET x TO $''''''', IF count >= 10 THEN), and %VarName% only for string interpolation inside $'''...''' literals (NEVER Automation Anywhere $Var$ or .NET constructors).
+   - Initialize strings: SET VarName TO $''''''
+   - Display.InputDialog always outputs a Text variable. Whenever an InputDialog or string variable is used in a numeric comparison (>=, >, <, <=) or numeric cast (CInt, Convert.ToInt32, CDbl), convert it first with Text.ToNumber and guard with ButtonPressed = $'''OK''':
+     Display.InputDialog Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed
+     IF ButtonPressed = $'''OK''' THEN
+         Text.ToNumber Text: userAgeText Number=> userAgeText_Num
+         IF userAgeText_Num >= 18 THEN
+             Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+         ELSE
+             Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+         END
+     END
    - Initialize JSON objects: Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj
    - Initialize lists/arrays: Variables.CreateNewList List=> jsonArray
-   - Initialize strings: SET VarName TO $''''''
 
 6. REST APIS & CRITICAL ERROR HANDLING:
    - Extract URLs from EndPoint or RequestUrl (e.g. Url: $'''https://jsonplaceholder.typicode.com/posts/%delPostId%''').
@@ -68,186 +81,220 @@ CRITICAL RULES FOR POWER AUTOMATE DESKTOP (ROBIN) CANVAS PASTE SYNTAX:
      Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: %excelPath%
 """
 
-def convert_to_robin(api_key: str, model: str, xml_context: str, dlls: List[str], include_node_metadata: bool = False) -> Dict[str, Any]:
-    """
-    Converts UiPath XML context and DLLs into a PAD Robin script and summary
-    using either Google Gemini or OpenAI LLMs (with fallback to local AST engine).
-    """
-    clean_model = model.strip()
-    if clean_model.startswith("openai."):
-        clean_model = clean_model.replace("openai.", "")
+def _parse_llm_response(response_text: str) -> Tuple[str, str]:
+    """Extract (summary, sanitized_robin_script) from raw LLM text output."""
+    if not response_text:
+        return "", ""
+
+    summary = ""
+    robin_script: Any = ""
+
+    clean_resp = response_text.strip()
+    if "```json" in clean_resp:
+        clean_resp = clean_resp.split("```json", 1)[1].split("```", 1)[0].strip()
+    elif "```" in clean_resp:
+        clean_resp = clean_resp.split("```", 1)[1].split("```", 1)[0].strip()
+
+    try:
+        parsed = json.loads(clean_resp)
+        if isinstance(parsed, dict):
+            summary = str(parsed.get("summary", ""))
+            robin_script = parsed.get("robin_script", "")
+    except Exception:
+        if "```" in response_text:
+            blocks = re.findall(r'```(?:robin|text)?\s*(.*?)\s*```', response_text, re.DOTALL)
+            if blocks:
+                robin_script = blocks[0].strip()
+                summary = re.sub(r'```(?:robin|text)?\s*.*?\s*```', '', response_text, flags=re.DOTALL).strip()
+        if not robin_script and (
+            "FUNCTION " in response_text
+            or "SET " in response_text
+            or "Display." in response_text
+            or "IF " in response_text
+        ):
+            robin_script = response_text.strip()
+            summary = "Robin script generated directly by LLM."
+
+    if isinstance(robin_script, (list, dict)):
+        robin_script = json.dumps(robin_script, indent=2, ensure_ascii=False)
+
+    return summary, sanitize_robin_script(str(robin_script or ""))
+
+
+def _call_gemini(
+    api_key: str,
+    clean_model: str,
+    prompt_content: str,
+    temperature: float,
+) -> Tuple[str, Optional[str], str]:
+    """Execute Gemini request with cluster failover; returns (response_text, error_message, used_model)."""
+    initial_model = clean_model if "gemini" in clean_model.lower() else "gemini-2.0-flash"
+    if "gemini-2.5" in initial_model:
+        initial_model = "gemini-2.0-flash"
+
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt_content}]}],
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "generationConfig": {"temperature": temperature, "maxOutputTokens": 8192},
+    }
+
+    models_to_try = [initial_model]
+    for candidate in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-3.8-flash"]:
+        if candidate not in models_to_try:
+            models_to_try.append(candidate)
 
     response_text = ""
-    summary = ""
-    robin_script = ""
+    error_message: Optional[str] = None
+    used_model = initial_model
 
-    # Check if Gemini or OpenAI
-    is_gemini = "gemini" in clean_model.lower() or not (clean_model.startswith("gpt-") or "claude" in clean_model.lower())
-    
-    # Prepare metadata instruction for Automation Anywhere node syntax if requested
-    if include_node_metadata:
-        metadata_instruction = (
-            "\n\nCRITICAL NODE METADATA STRUCTURE (Automation Anywhere / Taskbot Syntax Requirement):\n"
-            "Prepend each converted action with a node metadata comment matching this exact format:\n"
-            "# node_id=<BotName> 1.<5-digit-index>.<8-char-hex>; package=<Package>; action=<Action>; resolved=<ResolvedAction>\n"
-            "Examples:\n"
-            "# Task banner at the top:\n"
-            "# node_id=BotName 1.00001.90b40efc; package=Comment; action=Comment; resolved=comment\n"
-            "# ********************************************************TASK NAME: BotName ****************************************************************************************************************************************************\n\n"
-            "# Variables:\n"
-            "# node_id=BotName 1.00004.0c8f821d; package=String; action=assign; resolved=assign\n"
-            "SET vstr_Name TO $''''''\n\n"
-            "# node_id=BotName 1.00005.93398219; package=Number; action=assignToNumber; resolved=assign\n"
-            "SET vint_Count TO $'''0'''\n\n"
-            "# node_id=BotName 1.00008.38974a9c; package=Boolean; action=assign; resolved=assign\n"
-            "SET vbln_Flag TO $'''constant'''\n\n"
-            "# Section divider:\n"
-            "# node_id=BotName 1.00011.24e91e99; package=Comment; action=Comment; resolved=comment\n"
-            "# ==============================================================================================================================================================\n\n"
-            "# If / ElseIf / Else:\n"
-            "# node_id=BotName 1.00024.c9e97547; package=If; action=if; resolved=if\n"
-            "IF condition THEN\n\n"
-            "# node_id=BotName 1.00026.5318137c; package=If; action=elseIf; resolved=else if\n"
-            "ELSE IF condition THEN\n\n"
-            "# node_id=BotName 1.00030.503b30e1; package=If; action=else; resolved=else\n"
-            "ELSE\n\n"
-            "# Delays:\n"
-            "# node_id=BotName 1.00032.fa26b3c1; package=Delay; action=delay; resolved=delay\n"
-            "WAIT TODO_DURATION\n\n"
-            "# MessageBox:\n"
-            "# node_id=BotName 1.00056.28736ee0; package=MessageBox; action=messageBox; resolved=show message\n"
-            "Display.ShowMessageDialog.ShowMessage Title: $'''Automation Anywhere Enterprise Client''' Message: $'''...''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
-        )
-    else:
-        metadata_instruction = ""
-
-    # 1. Try Gemini API
-    if is_gemini and api_key:
+    for current_m in models_to_try:
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{current_m}:generateContent?key={api_key}"
         try:
-            # Map standard model names if user typed generic
-            gemini_model_name = clean_model if "gemini" in clean_model.lower() else "gemini-2.5-flash"
-            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model_name}:generateContent?key={api_key}"
-            
-            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
-            
-            payload = {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [{"text": prompt_content}]
-                    }
-                ],
-                "systemInstruction": {
-                    "parts": [{"text": SYSTEM_PROMPT}]
-                },
-                "generationConfig": {
-                    "temperature": 0.1,
-                    "maxOutputTokens": 8192
-                }
-            }
-            
-            resp = requests.post(endpoint, json=payload, headers={"Content-Type": "application/json"}, timeout=90)
+            resp = requests.post(
+                endpoint,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=120,
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 candidates = data.get("candidates", [])
                 if candidates:
                     parts = candidates[0].get("content", {}).get("parts", [])
                     response_text = "\n".join(p.get("text", "") for p in parts)
-            else:
-                response_text = f"Gemini Error ({resp.status_code}): {resp.text}"
-        except Exception as ex:
-            response_text = f"Gemini Request Exception: {str(ex)}"
+                used_model = current_m
+                error_message = None
+                break
+            if resp.status_code in (503, 429):
+                error_message = f"Gemini Error ({resp.status_code}): {resp.text}"
+                time.sleep(1.2)
+                continue
+            if resp.status_code == 404:
+                error_message = f"Gemini Error (404): {resp.text}"
+                continue
+            error_message = f"Gemini Error ({resp.status_code}): {resp.text}"
+            break
+        except requests.RequestException as ex:
+            error_message = f"Gemini Request Exception: {str(ex)}"
+            continue
 
-    # 2. Try OpenAI API if requested
-    elif not is_gemini and api_key:
-        try:
-            endpoint = "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-            prompt_content = f"UiPath Project Extracted Context:\n{xml_context}\n\nDetected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\nConvert this into Power Automate Desktop (Robin) script and business summary in JSON format.{metadata_instruction}"
-            
-            payload = {
-                "model": clean_model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt_content}
-                ],
-                "temperature": 0.1
-            }
-            resp = requests.post(endpoint, json=payload, headers=headers, timeout=90)
-            if resp.status_code == 200:
-                data = resp.json()
-                choices = data.get("choices", [])
-                if choices:
-                    response_text = choices[0].get("message", {}).get("content", "")
-            else:
-                response_text = f"OpenAI Error ({resp.status_code}): {resp.text}"
-        except Exception as ex:
-            response_text = f"OpenAI Request Exception: {str(ex)}"
+    return response_text, error_message, used_model
 
-    # Save raw response for user inspection
-    Path("model_response.txt").write_text(response_text or "No model response generated.", encoding="utf-8")
 
-    # 3. Parse JSON response if returned by LLM
-    if response_text and not response_text.startswith("Gemini Error") and not response_text.startswith("OpenAI Error"):
-        # Strip code markdown if wrapped
-        clean_resp = response_text.strip()
-        if "```json" in clean_resp:
-            clean_resp = clean_resp.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean_resp:
-            clean_resp = clean_resp.split("```")[1].split("```")[0].strip()
-            
-        try:
-            parsed = json.loads(clean_resp)
-            summary = parsed.get("summary", "")
-            robin_script = parsed.get("robin_script", "")
-        except Exception:
-            # Check if LLM output was formatted with code blocks ```robin ... ```
-            if "```" in response_text:
-                blocks = re.findall(r'```(?:robin|text)?\s*(.*?)\s*```', response_text, re.DOTALL)
-                if blocks:
-                    robin_script = blocks[0].strip()
-                    summary = re.sub(r'```(?:robin|text)?\s*.*?\s*```', '', response_text, flags=re.DOTALL).strip()
-            if not robin_script and ("FUNCTION" in response_text or "SET " in response_text or "Display." in response_text):
-                robin_script = response_text.strip()
-                summary = "Robin script generated directly by LLM."
+def _call_openai(
+    api_key: str,
+    clean_model: str,
+    prompt_content: str,
+    temperature: float,
+) -> Tuple[str, Optional[str], str]:
+    """Execute OpenAI chat completions request; returns (response_text, error_message, used_model)."""
+    endpoint = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": clean_model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt_content},
+        ],
+        "temperature": temperature,
+    }
+    try:
+        resp = requests.post(endpoint, json=payload, headers=headers, timeout=120)
+        if resp.status_code == 200:
+            data = resp.json()
+            choices = data.get("choices", [])
+            text = choices[0].get("message", {}).get("content", "") if choices else ""
+            return text, None, clean_model
+        return "", f"OpenAI Error ({resp.status_code}): {resp.text}", clean_model
+    except Exception as ex:
+        return "", f"OpenAI Request Exception: {str(ex)}", clean_model
 
-    # 4. Fallback / Augment with Local Deterministic Engine if LLM failed or didn't return robin_script
+
+def convert_to_robin(
+    api_key: str,
+    model: str,
+    xml_context: str,
+    dlls: List[str],
+    temperature: float = 0.1,
+    include_node_metadata: bool = False,
+) -> Dict[str, Any]:
+    """
+    Convert UiPath XML context and DLLs into a clean PAD Robin script and summary
+    strictly using an LLM call (Google Gemini or OpenAI), with no local AST fallback.
+    """
+    _ = include_node_metadata  # Unused; metadata headers are excluded from clean Robin output
+    clean_model = model.strip()
+    if clean_model.startswith("openai."):
+        clean_model = clean_model.replace("openai.", "", 1)
+
+    if not api_key or not api_key.strip():
+        return {
+            "success": False,
+            "summary": "",
+            "robin_script": "",
+            "engine": "LLM",
+            "error": "API Key is required for LLM conversion.",
+            "raw_response": "",
+            "model_used": clean_model,
+        }
+
+    prompt_content = (
+        f"UiPath Project Extracted Context:\n{xml_context}\n\n"
+        f"Detected DLL Dependencies:\n{', '.join(dlls) if dlls else 'None'}\n\n"
+        "Convert this into clean, directly pasteable Power Automate Desktop (Robin) script and business summary in JSON format."
+    )
+
+    is_gemini = "gemini" in clean_model.lower() or not (
+        clean_model.startswith("gpt-") or "claude" in clean_model.lower()
+    )
+
+    if is_gemini:
+        response_text, error_message, used_model = _call_gemini(
+            api_key, clean_model, prompt_content, temperature
+        )
+    else:
+        response_text, error_message, used_model = _call_openai(
+            api_key, clean_model, prompt_content, temperature
+        )
+
+    Path("model_response.txt").write_text(
+        response_text or error_message or "No model response generated.",
+        encoding="utf-8",
+    )
+
+    if not response_text:
+        return {
+            "success": False,
+            "summary": "",
+            "robin_script": "",
+            "engine": "LLM",
+            "error": error_message or "No response received from the AI model.",
+            "raw_response": error_message or "",
+            "model_used": used_model,
+        }
+
+    summary, robin_script = _parse_llm_response(response_text)
     if not robin_script:
-        pm = ProjectManager(include_comments=True, include_selectors_header=True)
-        pm.generator.include_node_metadata = include_node_metadata
-        # Parse from context or extract
-        local_robin = ""
-        try:
-            # Parse individual workflows found in context
-            wf_blocks = re.split(r'={20,}\nWORKFLOW XAML FILE:\s*([^\n]+)\n={20,}', xml_context)
-            if len(wf_blocks) > 1:
-                # pairs of (filename, content)
-                robin_parts = []
-                for i in range(1, len(wf_blocks), 2):
-                    fname = Path(wf_blocks[i].strip()).name
-                    x_content = wf_blocks[i+1]
-                    proj = pm.process_single_xaml(x_content, filename=fname)
-                    robin_parts.append(pm.get_full_project_robin(proj))
-                local_robin = "\n\n".join(robin_parts)
-            else:
-                proj = pm.process_single_xaml(xml_context, filename="Main.xaml")
-                local_robin = pm.get_full_project_robin(proj)
-        except Exception:
-            local_robin = "# Local fallback conversion completed."
-
-        robin_script = local_robin
-        if not summary:
-            summary = (
-                f"Automated translation completed using the AST RPA Converter Engine. "
-                f"All activities, flow containers, and expressions were mapped to native Power Automate Desktop (Robin) syntax. "
-                f"{f'Model notice: {response_text[:200]}' if response_text else ''}"
-            )
+        return {
+            "success": False,
+            "summary": summary,
+            "robin_script": "",
+            "engine": "LLM",
+            "error": "The LLM responded, but did not return a valid Robin script.",
+            "raw_response": response_text,
+            "model_used": used_model,
+        }
 
     return {
+        "success": True,
         "summary": summary,
-        "robin_script": robin_script
+        "robin_script": robin_script,
+        "engine": "LLM",
+        "error": None,
+        "raw_response": response_text,
+        "model_used": used_model,
     }
 

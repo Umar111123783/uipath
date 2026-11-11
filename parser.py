@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import zipfile
 import tempfile
@@ -145,3 +146,59 @@ def build_xml_context(project_folder: Union[str, Path]) -> str:
             context_parts.append(f"# Error reading {xf}: {str(e)}\n")
             
     return "\n".join(context_parts)
+
+
+_ROBIN_STRIP_LINE_PATTERNS = [
+    re.compile(r'^\s*#\s*[=\-\*_]{4,}.*$'),
+    re.compile(r'^\s*#\s*POWER AUTOMATE DESKTOP\b', re.IGNORECASE),
+    re.compile(r'^\s*#\s*(?:Project|Total Workflows|Total Activities|Conversion Success Rate|Instructions)\s*:', re.IGNORECASE),
+    re.compile(r'^\s*#\s*Power Automate Desktop flow designer canvas\.?\s*$', re.IGNORECASE),
+    re.compile(r'^\s*#\s*Converted from UiPath Workflow\s*:', re.IGNORECASE),
+    re.compile(r'^\s*#\s*(?:Arguments|Variables)\s*\(\d+\)\s*:', re.IGNORECASE),
+    re.compile(r'^\s*#\s*-\s*(?:\[[^\]]+\]\s*)?%[a-zA-Z0-9_]+%\s*\(', re.IGNORECASE),
+    re.compile(r'^\s*#\s*node_id\s*=', re.IGNORECASE),
+    re.compile(r'^\s*#\s*\*+\s*TASK NAME\s*:', re.IGNORECASE),
+    re.compile(r'^\s*#\s*---\s*.*?\s*---\s*$'),
+    re.compile(r'^\s*#\s*\[ControlRepositoryFolder\]\s*$', re.IGNORECASE),
+    re.compile(r'^\s*#\s*(?:Control|XPath|CSS|UiPath)\s*:', re.IGNORECASE),
+]
+
+
+def sanitize_robin_script(script: str) -> str:
+    """
+    Remove metadata banners, # node_id debug comments, decorative dividers,
+    trailing inline # XPath comments, and extra blank lines so every line is
+    cleanly Ctrl+V pasteable into Power Automate Desktop.
+    """
+    if not script:
+        return ""
+
+    cleaned_lines: List[str] = []
+    in_control_repo = False
+    for raw_line in script.splitlines():
+        if not raw_line.strip():
+            continue
+
+        if re.match(r'^\s*#\s*\[ControlRepositoryFolder\]\s*$', raw_line, re.IGNORECASE):
+            in_control_repo = True
+            continue
+        if in_control_repo:
+            if re.match(r'^\s*#\s*End\s+ControlRepositoryFolder\b', raw_line, re.IGNORECASE):
+                in_control_repo = False
+                continue
+            if raw_line.lstrip().startswith("#"):
+                continue
+            in_control_repo = False
+
+        # Drop header / metadata / node_id / decorative divider lines
+        if any(pat.match(raw_line) for pat in _ROBIN_STRIP_LINE_PATTERNS):
+            continue
+
+        # Strip trailing inline XPath comment from action statements
+        line = re.sub(r'\s+#\s*XPath:\s*.*$', '', raw_line).rstrip()
+        if not line.strip():
+            continue
+
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines)

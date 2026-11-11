@@ -102,7 +102,13 @@ class UiPathXamlParser:
             tag = clean_tag(elem.tag)
             if tag == "Variable" and "Name" in elem.attrib:
                 name = elem.attrib.get("Name", "")
-                type_name = elem.attrib.get("TypeArguments", "x:String")
+                type_name = (
+                    elem.attrib.get("TypeArguments")
+                    or next(
+                        (v for k, v in elem.attrib.items() if k.endswith("}TypeArguments") or k.endswith(":TypeArguments")),
+                        "x:String"
+                    )
+                )
                 clean_type = type_name.split(":")[-1]
                 default_val = elem.attrib.get("Default")
                 self.variables.append(ParsedVariable(
