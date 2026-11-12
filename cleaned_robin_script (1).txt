@@ -6,7 +6,12 @@ Display.InputDialog Title: $'''Age Checker''' Message: $'''Please enter your age
 
 # node_id=AgeChecker.00003.b953acdd; package=If; action=if; resolved=if
 IF ButtonPressed = $'''OK''' THEN
-    # node_id=AgeChecker.00004.3e4589e5; package=Text; action=toNumber; resolved=convert text to number
+    # node_id=AgeChecker.00004.3e4589e5; package=Text; action=toNumber; resolved=convert textSET responseString TO $''''''
+SET responseStatus TO 0
+Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
+IF responseStatus < 200 OR responseStatus >= 300 THEN
+    EXIT Code: 0
+END to number
     Text.ToNumber Text: userAgeText Number=> userAgeText_Num
 
     # node_id=AgeChecker.00005.4091e869; package=If; action=if; resolved=if
