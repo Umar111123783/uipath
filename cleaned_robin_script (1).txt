@@ -1,18 +1,7 @@
-SET responseString TO $''''''
-SET jsonObj TO $''''''
-SET jsonArray TO $''''''
-SET postId TO 0
-SET count TO 0
-SET requestBody TO $''''''
-SET httpResponse TO $''''''
-SET httpResponseBody TO $''''''
-SET responseStatus TO 0
-SET newPostTitle TO $''''''
-SET newPostDesc TO $''''''
-SET delPostId TO $''''''
-SET dtPosts TO $''''''
-SET excelPath TO $''''''
-SET responseString TO $''''''
-Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj
-Variables.CreateNewList List=> jsonArray
-SET postId TO 1
+Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
+IF responseStatus < 200 OR responseStatus >= 300 THEN
+    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus%\r\n%responseString%''' Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
+    EXIT Code: 0
+END
+Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonArray
+SET count TO jsonArray.Count
