@@ -1,1 +1,1 @@
-Gemini Request Exception: HTTPSConnectionPool(host='generativelanguage.googleapis.com', port=443): Read timed out. (read timeout=120)
+LLM Request Exception: HTTPSConnectionPool(host='genai-sharedservice-apac.pwcinternal.com', port=443): Max retries exceeded with url: /chat/completions (Caused by NameResolutionError("HTTPSConnection(host='genai-sharedservice-apac.pwcinternal.com', port=443): Failed to resolve 'genai-sharedservice-apac.pwcinternal.com' ([Errno 11001] getaddrinfo failed)"))
