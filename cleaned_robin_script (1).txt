@@ -1,95 +1,469 @@
-SET responseString TO $''''''
-SET jsonObj TO $''''''
-SET jsonArray TO $''''''
-SET postId TO 0
-SET count TO 0
-SET requestBody TO $''''''
-SET httpResponse TO $''''''
-SET httpResponseBody TO $''''''
-SET responseStatus TO 0
-SET newPostTitle TO $''''''
-SET newPostDesc TO $''''''
-SET delPostId TO $''''''
-SET dtPosts TO $''''''
-SET excelPath TO $''''''
-SET responseString TO $''''''
-Variables.ConvertJsonToCustomObject Json: $'''{}''' CustomObject=> jsonObj
-Variables.CreateNewList List=> jsonArray
-SET postId TO 1
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus < 200 OR responseStatus >= 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonArray
-SET count TO jsonArray.Count
-Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Total Posts: %count%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-Display.InputDialog Title: $'''Get Single Post Details''' Message: $'''Enter the post id''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> postId ButtonPressed=> ButtonPressed
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts/%postId%''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus < 200 OR responseStatus >= 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonObj
-Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title :%jsonObj['title']%\r\nBody :%jsonObj['body']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-Display.InputDialog Title: $'''Enter postTitle''' Message: $'''Please enter value for postTitle:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostTitle ButtonPressed=> ButtonPressed
-Display.InputDialog Title: $'''Enter postDesc''' Message: $'''Please enter value for postDesc:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostDesc ButtonPressed=> ButtonPressed
-SET requestBody TO $'''{"title":"%newPostTitle%","body":"%newPostDesc%","userId":1}'''
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Post Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: requestBody ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus >= 200 AND responseStatus < 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Created new Post response : %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-ELSE
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-SET requestBody TO $'''{"id":1,"title":"Updated Title","body":"Updated Body","userId":1}'''
-Display.InputDialog Title: $'''Enter updatePostTitle''' Message: $'''Please enter value for updatePostTitle:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostTitle ButtonPressed=> ButtonPressed
-Display.InputDialog Title: $'''Enter updatePostDesc''' Message: $'''Please enter value for updatePostDesc:''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> newPostDesc ButtonPressed=> ButtonPressed
-SET requestBody TO $'''{"title":"%newPostTitle%","body":"%newPostDesc%","id":1,"userId":1}'''
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts/1''' Method: Web.Method.Put Accept: $'''application/json''' ContentType: $'''application/json''' RequestBody: requestBody ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus >= 200 AND responseStatus < 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Update Post details API response: %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-ELSE
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-Display.InputDialog Title: $'''Delete Post''' Message: $'''Enter Post Id to delete''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> delPostId ButtonPressed=> ButtonPressed
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts/%delPostId%''' Method: Web.Method.Delete Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus >= 200 AND responseStatus < 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Post wit id: %delPostId%  has been deleted!''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-ELSE
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Calling Updated Post list for User 1''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts?userId=1''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus < 200 OR responseStatus >= 300 THEN
-    Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' Message: $'''HTTP request failed with status: %responseStatus% %responseString%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-    EXIT Code: 0
-END
-Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonArray
-LOOP FOREACH CurrentItem IN jsonArray
-    Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''Title: %CurrentItem['title']%\r\nDesc :%CurrentItem['body']%\r\nId: %CurrentItem['id']%''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
-END
-Variables.CreateNewDatatable InputTable: { ^['UserId', 'PostId', 'Title', 'Body'] } DataTable=> dtPosts
-LOOP FOREACH CurrentItem IN jsonArray
-    SET row_userId TO CurrentItem['userId']
-    SET row_id TO CurrentItem['id']
-    SET row_title TO CurrentItem['title']
-    SET row_body TO CurrentItem['body']
-    Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToAdd: [row_userId, row_id, row_title, row_body]
-END
-Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
-SET excelPath TO $'''%SpecialFolderPath%\User_1_all_posts.xlsx'''
-IF (File.IfFile.Exists File: excelPath) THEN
-    Excel.LaunchExcel.LaunchAndOpen Path: excelPath Visible: True ReadOnly: False LoadAddInsAndMacros: False Instance=> ExcelInstance
-ELSE
-    Excel.LaunchExcel.Launch Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
-END
-Excel.SetActiveWorksheet.ActivateWorksheetByName Instance: ExcelInstance Name: $'''Sheet1'''
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''userId''' Column: 1 Row: 1
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''id''' Column: 2 Row: 1
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''title''' Column: 3 Row: 1
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: $'''body''' Column: 4 Row: 1
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: dtPosts Column: 1 Row: 2
-Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance DocumentFormat: Excel.ExcelFormat.FromExtension DocumentPath: excelPath
+import io
+import json
+import hashlib
+import zipfile
+from pathlib import Path, PurePosixPath
+
+import pandas as pd
+import requests
+import streamlit as st
+
+from system_prompt_desktop import system_prompt
+from aa_code_analyzer import run_pipeline
+
+
+APP_DIR = Path(__file__).resolve().parent
+API_URL = "https://genai-sharesahdjdjasjdjabjsdbjabjb"
+MAPPING_FILE = APP_DIR / "AA360_to_Power_Automate_Robin_Reference_Mapping.xlsx"
+TEXT_KNOWLEDGE_FILES = [
+    APP_DIR / "SampleRobinScripts.txt",
+    APP_DIR / "PAD_SampleMainFlow.txt",
+    APP_DIR / "PAD_SampleSubflow.txt",
+]
+MAX_ZIP_SIZE_BYTES = 50 * 1024 * 1024
+MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+REQUEST_TIMEOUT_SECONDS = 300
+GENERATED_DIR = APP_DIR / "generated_analysis"
+GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+
+
+st.set_page_config(
+    page_title="Automation Anywhere to Robin Converter",
+    page_icon="🤖",
+    layout="wide",
+)
+
+
+def read_text_file(path: Path) -> str:
+    """Read a text file, allowing a few common encodings."""
+    for encoding in ("utf-8", "utf-8-sig", "cp1252"):
+        try:
+            return path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError(f"Could not decode text file: {path.name}")
+
+
+@st.cache_data(show_spinner=False)
+def load_mapping_workbook(path_string: str, modified_time: float) -> str:
+    """Convert every worksheet in the mapping workbook into readable CSV text."""
+    del modified_time  # Used only to invalidate Streamlit's cache when the file changes.
+    workbook = pd.read_excel(path_string, sheet_name=None, engine="openpyxl", dtype=str)
+    sections = []
+    for sheet_name, frame in workbook.items():
+        frame = frame.fillna("")
+        sections.append(f"### Worksheet: {sheet_name}\n{frame.to_csv(index=False)}")
+    return "\n\n".join(sections)
+
+
+@st.cache_data(show_spinner=False)
+def load_local_knowledge() -> str:
+    """Load all project-level knowledge sources used in the system message."""
+    required_files = [MAPPING_FILE, *TEXT_KNOWLEDGE_FILES]
+    missing = [path.name for path in required_files if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(
+            "Missing required project file(s): " + ", ".join(missing)
+        )
+
+    mapping_content = load_mapping_workbook(
+        str(MAPPING_FILE), MAPPING_FILE.stat().st_mtime
+    )
+
+    text_sections = []
+    for path in TEXT_KNOWLEDGE_FILES:
+        text_sections.append(
+            f"## File: {path.name}\n\n{read_text_file(path)}"
+        )
+
+    return (
+        "# AA360 to Power Automate mapping workbook\n\n"
+        f"{mapping_content}\n\n"
+        "# Reference Robin and Power Automate Desktop examples\n\n"
+        + "\n\n".join(text_sections)
+    )
+
+
+def extract_json_documents(uploaded_zip) -> list[tuple[str, object]]:
+    """Safely read and parse all JSON files found in the uploaded ZIP."""
+    zip_bytes = uploaded_zip.getvalue()
+    if len(zip_bytes) > MAX_ZIP_SIZE_BYTES:
+        raise ValueError("The uploaded ZIP exceeds the 50 MB size limit.")
+
+    documents = []
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as archive:
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+        total_size = sum(info.file_size for info in infos)
+        if total_size > MAX_UNCOMPRESSED_BYTES:
+            raise ValueError(
+                "The ZIP expands beyond the 100 MB safety limit."
+            )
+
+        json_infos = []
+        for info in infos:
+            normalized = PurePosixPath(info.filename.replace("\\", "/"))
+            if normalized.is_absolute() or ".." in normalized.parts:
+                raise ValueError(f"Unsafe path found in ZIP: {info.filename}")
+            if normalized.suffix.lower() == ".json":
+                json_infos.append(info)
+
+        if not json_infos:
+            raise ValueError("No .json file was found in the uploaded ZIP.")
+
+        for info in json_infos:
+            raw = archive.read(info)
+            try:
+                text = raw.decode("utf-8-sig")
+            except UnicodeDecodeError as exc:
+                raise ValueError(
+                    f"JSON file {info.filename} is not UTF-8 encoded."
+                ) from exc
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Invalid JSON in {info.filename}: line {exc.lineno}, "
+                    f"column {exc.colno}: {exc.msg}"
+                ) from exc
+            documents.append((info.filename, parsed))
+
+    return documents
+
+
+def _safe_filename(name: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in name)
+    return cleaned.strip("._") or "automation_export"
+
+
+def generate_analysis_workbook(uploaded_zip) -> dict:
+    """Save the uploaded ZIP locally and run the unmodified analyzer pipeline."""
+    zip_bytes = uploaded_zip.getvalue()
+    if len(zip_bytes) > MAX_ZIP_SIZE_BYTES:
+        raise ValueError("The uploaded ZIP exceeds the 50 MB size limit.")
+    digest = hashlib.sha256(zip_bytes).hexdigest()[:12]
+    local_zip = GENERATED_DIR / f"{_safe_filename(Path(uploaded_zip.name).stem)}_{digest}.zip"
+    local_zip.write_bytes(zip_bytes)
+    result = run_pipeline(str(local_zip))
+    workbook_path = Path(result["xlsx_path"])
+    if not workbook_path.is_file():
+        raise RuntimeError("The analyzer did not create an Excel workbook.")
+    return {
+        "upload_hash": digest,
+        "workbook_path": str(workbook_path),
+        "workbook_name": workbook_path.name,
+        "workbook_bytes": workbook_path.read_bytes(),
+        "analyzer_result": result,
+    }
+
+
+def workbook_to_system_prompt(workbook_path: str) -> str:
+    """Create a prompt containing data from every sheet in the generated workbook."""
+    workbook = pd.read_excel(workbook_path, sheet_name=None, engine="openpyxl", dtype=str)
+    sections = []
+    for sheet_name, frame in workbook.items():
+        sections.append(f"### Sheet: {sheet_name}\n{frame.fillna('').to_csv(index=False)}")
+    print('Sections:::::::', sections)
+    return (
+        "Generate a brief functional understanding of this Automation Anywhere package.\n"
+        "Use only the workbook data below. Do not add assumptions or outside knowledge.\n"
+        "Return plain text only, with a maximum of 500 characters.\n\n"
+        + "\n\n".join(sections)
+    )
+
+
+def extract_plain_llm_text(response_data: dict) -> str:
+    choices = response_data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise ValueError("The LLM response did not contain any choices.")
+    first = choices[0]
+    content = first.get("message", {}).get("content")
+    if isinstance(content, str):
+        text = strip_markdown_fence(content).strip()
+    elif isinstance(content, list):
+        text = "\n".join(
+            part.get("text", "") for part in content
+            if isinstance(part, dict) and isinstance(part.get("text"), str)
+        ).strip()
+    else:
+        text = str(first.get("text") or "").strip()
+    if not text:
+        raise ValueError("The LLM response did not contain generated text.")
+    return text if len(text) <= 500 else text[:497].rstrip() + "..."
+
+
+def call_functional_summary_llm(api_key: str, model_name: str, workbook_path: str) -> str:
+    payload = {
+        "model": model_name,
+        "messages": [{"role": "system", "content": workbook_to_system_prompt(workbook_path)}],
+    }
+    headers = {"accept": "application/json", "API-Key": api_key, "Content-Type": "application/json"}
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Could not connect to the LLM endpoint: {exc}") from exc
+    if not response.ok:
+        raise RuntimeError(f"LLM request failed with HTTP {response.status_code}. {response.text.strip()[:1000]}")
+    try:
+        return extract_plain_llm_text(response.json())
+    except ValueError as exc:
+        raise RuntimeError("The LLM endpoint returned an invalid response.") from exc
+
+
+def build_system_message(knowledge: str) -> str:
+    """Create the complete system message from the desktop prompt and KB files."""
+    return f"""{system_prompt}
+
+You are also provided with the following authoritative conversion references.
+Use them when translating the Automation Anywhere export into a valid Robin script.
+Do not copy an example blindly; adapt it to the uploaded bot's actual logic.
+
+Return only one valid JSON object with exactly these two keys:
+{{
+  "summary": "A very brief summary of what this Bot does in no more than 500 characters",
+  "robin_script": "The complete, directly pasteable Robin script"
+}}
+
+Do not include Markdown fences, introductory prose, explanations, or trailing commentary.
+The summary must be 300 characters or fewer. The robin_script value must contain only
+the Robin code and must preserve line breaks using valid JSON escaping.
+
+{knowledge}
+"""
+
+
+def build_user_message(documents: list[tuple[str, object]]) -> str:
+    parts = [
+        "Convert the following Automation Anywhere export JSON into one complete "
+        "Power Automate Desktop Robin script. Preserve the workflow logic, variables, "
+        "conditions, loops, error handling, and action order as accurately as possible."
+    ]
+    for filename, parsed in documents:
+        formatted = json.dumps(parsed, ensure_ascii=False, indent=2)
+        parts.append(f"## Automation Anywhere JSON: {filename}\n{formatted}")
+    return "\n\n".join(parts)
+
+
+def strip_markdown_fence(text: str) -> str:
+    """Remove an optional surrounding Markdown code fence."""
+    cleaned = text.strip().replace("\r\n", "\n")
+    lines = cleaned.splitlines()
+    if lines and lines[0].strip().startswith("```"):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == "```":
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
+def clean_robin_script(text: str) -> str:
+    """Normalize the Robin script while preserving directly pasteable code."""
+    cleaned = strip_markdown_fence(text)
+    if not cleaned:
+        raise ValueError("The LLM returned an empty Robin script.")
+    return cleaned + "\n"
+
+
+def parse_llm_output(raw_text: str) -> dict:
+    """Validate the required summary/robin_script JSON response."""
+    candidate = strip_markdown_fence(raw_text)
+    try:
+        result = json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "The LLM did not return the required JSON output format. "
+            f"JSON error at line {exc.lineno}, column {exc.colno}: {exc.msg}"
+        ) from exc
+
+    if not isinstance(result, dict):
+        raise ValueError("The LLM output must be a JSON object.")
+
+    if set(result) != {"summary", "robin_script"}:
+        raise ValueError(
+            'The LLM output must contain exactly "summary" and "robin_script".'
+        )
+
+    summary = result.get("summary")
+    robin_script = result.get("robin_script")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ValueError('The LLM output contains an invalid or empty "summary".')
+    if len(summary.strip()) > 300:
+        raise ValueError('The LLM "summary" exceeds the 300-character limit.')
+    if not isinstance(robin_script, str) or not robin_script.strip():
+        raise ValueError('The LLM output contains an invalid or empty "robin_script".')
+
+    return {
+        "summary": summary.strip(),
+        "robin_script": clean_robin_script(robin_script),
+    }
+
+
+def extract_llm_text(response_data: dict) -> dict:
+    """Extract and validate an OpenAI-compatible chat completion response."""
+    choices = response_data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise ValueError("The LLM response did not contain any choices.")
+
+    first_choice = choices[0]
+    message = first_choice.get("message", {})
+    content = message.get("content")
+
+    if isinstance(content, str) and content.strip():
+        return parse_llm_output(content)
+
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and isinstance(part.get("text"), str):
+                text_parts.append(part["text"])
+        combined = "\n".join(text_parts).strip()
+        if combined:
+            return parse_llm_output(combined)
+
+    fallback = first_choice.get("text")
+    if isinstance(fallback, str) and fallback.strip():
+        return parse_llm_output(fallback)
+
+    raise ValueError("The LLM response did not contain generated text.")
+
+def call_llm(api_key: str, model_name: str, system_message: str, user_message: str) -> dict:
+    payload = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message},
+        ],
+    }
+    headers = {
+        "accept": "application/json",
+        "API-Key": api_key,
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Could not connect to the LLM endpoint: {exc}") from exc
+
+    if not response.ok:
+        # Limit displayed server output because it may contain internal details.
+        detail = response.text.strip()[:1000]
+        raise RuntimeError(
+            f"LLM request failed with HTTP {response.status_code}. {detail}"
+        )
+
+    try:
+        response_data = response.json()
+    except ValueError as exc:
+        raise RuntimeError("The LLM endpoint returned a non-JSON response.") from exc
+
+    return extract_llm_text(response_data)
+
+
+st.title("Automation Anywhere to Robin Converter")
+st.caption("Upload an Automation Anywhere export ZIP. Its analysis workbook is generated automatically and saved locally.")
+
+with st.sidebar:
+    st.header("LLM settings")
+    api_key = st.text_input("API key", type="password", placeholder="sk-...", help="Used only for LLM requests; it is not written to disk.")
+    model_name = st.text_input("Model name", value="azure.gpt-4o")
+    st.info("Functional understanding uses only the generated workbook. Robin generation keeps its existing behavior.")
+
+uploaded_zip = st.file_uploader("Automation Anywhere export", type=["zip"], help="Analysis starts automatically after upload.")
+
+if uploaded_zip is not None:
+    current_hash = hashlib.sha256(uploaded_zip.getvalue()).hexdigest()[:12]
+    if current_hash != st.session_state.get("analysis_upload_hash"):
+        for key in ("analysis_result", "functional_summary", "generated_output", "analysis_error"):
+            st.session_state.pop(key, None)
+        try:
+            with st.status("Analyzing uploaded package...", expanded=True) as status:
+                st.write("Saving the uploaded ZIP locally...")
+                st.write("Running aa_code_analyzer.py...")
+                result = generate_analysis_workbook(uploaded_zip)
+                st.session_state["analysis_result"] = result
+                st.session_state["analysis_upload_hash"] = current_hash
+                status.update(label="Analysis workbook generated", state="complete")
+        except Exception as exc:
+            st.session_state["analysis_upload_hash"] = current_hash
+            st.session_state["analysis_error"] = str(exc)
+
+if st.session_state.get("analysis_error"):
+    st.error(st.session_state["analysis_error"])
+
+analysis_result = st.session_state.get("analysis_result")
+if analysis_result:
+    st.success(f"Analysis saved locally as {analysis_result['workbook_name']}")
+    st.download_button(
+        "Download analysis workbook", data=analysis_result["workbook_bytes"],
+        file_name=analysis_result["workbook_name"],
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True,
+    )
+    if st.button("Generate functional understanding", use_container_width=True):
+        if not api_key.strip():
+            st.error("Enter an API key in the sidebar.")
+        elif not model_name.strip():
+            st.error("Enter a model name in the sidebar.")
+        else:
+            try:
+                with st.spinner("Generating functional understanding..."):
+                    st.session_state["functional_summary"] = call_functional_summary_llm(
+                        api_key.strip(), model_name.strip(), analysis_result["workbook_path"]
+                    )
+            except (ValueError, RuntimeError) as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"Unexpected error: {exc}")
+
+if st.session_state.get("functional_summary"):
+    st.subheader("Functional understanding")
+    st.write(st.session_state["functional_summary"])
+    st.caption(f"{len(st.session_state['functional_summary'])}/500 characters")
+
+st.divider()
+generate_clicked = st.button("Generate Robin script", type="primary", use_container_width=True)
+
+# Existing Robin generation flow remains unchanged.
+if generate_clicked:
+    if not api_key.strip():
+        st.error("Enter an API key in the sidebar.")
+    elif not model_name.strip():
+        st.error("Enter a model name in the sidebar.")
+    elif uploaded_zip is None:
+        st.error("Upload an Automation Anywhere export ZIP.")
+    else:
+        try:
+            with st.status("Preparing conversion...", expanded=True) as status:
+                st.write("Reading local knowledge files...")
+                knowledge = load_local_knowledge()
+                st.write("Extracting and validating JSON from the ZIP...")
+                json_documents = extract_json_documents(uploaded_zip)
+                st.write(f"Found {len(json_documents)} JSON file(s): " + ", ".join(name for name, _ in json_documents))
+                st.write("Sending the conversion request to the LLM...")
+                generated_output = call_llm(
+                    api_key=api_key.strip(), model_name=model_name.strip(),
+                    system_message=build_system_message(knowledge),
+                    user_message=build_user_message(json_documents),
+                )
+                st.session_state["generated_output"] = generated_output
+                status.update(label="Robin script generated", state="complete")
+        except (FileNotFoundError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
+            st.error(str(exc))
+        except Exception as exc:
+            st.error(f"Unexpected error: {exc}")
+
+if st.session_state.get("generated_output"):
+    generated_output = st.session_state["generated_output"]
+    st.subheader("Conversion summary")
+    st.write(generated_output["summary"])
+    st.subheader("Generated Robin script")
+    st.code(generated_output["robin_script"], language=None, line_numbers=True)
+    st.caption("The download contains only the directly pasteable Robin script, without the summary or JSON wrapper.")
+    st.download_button(
+        "Download robin_script.txt", data=generated_output["robin_script"].encode("utf-8"),
+        file_name="robin_script.txt", mime="text/plain", type="primary",
+    )
