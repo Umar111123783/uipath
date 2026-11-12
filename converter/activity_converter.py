@@ -120,8 +120,8 @@ def format_http_error_actions(status_var: str, result_var: str) -> str:
     """Return unindented API error dialog and Stop flow actions for failed HTTP calls."""
     return (
         f"Display.ShowMessageDialog.ShowMessage Title: $'''API Error''' "
-        f"Message: $'''HTTP request failed with status: %{status_var}%\\r\\n%{result_var}%''' "
-        f"Icon: Display.Icon.Error Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
+        f"Message: $'''HTTP request failed with status: %{status_var}% %{result_var}%''' "
+        f"Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed\n"
         f"EXIT Code: 0"
     )
 
@@ -208,8 +208,17 @@ def convert_add_data_row(activity: ParsedActivity) -> str:
         keys = re.findall(r"CurrentItem\['([^']+)'\]", arr)
         
     if keys:
-        items_str = ", ".join([f"CurrentItem['{k}']" for k in keys])
-        return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToAdd: [{items_str}]"
+        assign_lines = []
+        row_vars = []
+        for k in keys:
+            safe_var = f"row_{re.sub(r'[^a-zA-Z0-9_]', '_', k)}"
+            assign_lines.append(f"SET {safe_var} TO CurrentItem['{k}']")
+            row_vars.append(safe_var)
+        items_str = ", ".join(row_vars)
+        assign_lines.append(
+            f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToAdd: [{items_str}]"
+        )
+        return "\n".join(assign_lines)
         
     robin_arr = convert_uipath_expression_to_robin(arr) if arr else "[CurrentItem]"
     return f"Variables.AddRowToDataTable.AppendRowToDataTable DataTable: {dt} RowToAdd: {robin_arr}"

@@ -210,9 +210,6 @@ if uploaded is not None:
             used_ep = result.get("endpoint_used", endpoint)
             st.success(f"🤖 **Generated Exclusively by AI Model (`{used_m}`)** via `{used_ep}`")
 
-            st.subheader("📋 Business Summary")
-            st.write(result.get("summary", "No summary generated."))
-
             st.subheader("⚡ Generated Power Automate Desktop (Robin) Script")
             st.info(
                 "💡 **How to Copy Without HTML Corruption (`<br>`, `&gt;`, `<a href>`):**\n"

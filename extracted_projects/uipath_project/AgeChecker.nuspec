@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>AgeChecker</id>
+    <version>1.0.1</version>
+    <title>AgeChecker</title>
+    <authors>usharma090</authors>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>AgeChecker desc</description>
+    <tags>VisualBasic VB UiPathStudioProcess</tags>
+    <dependencies>
+      <group targetFramework="net8.0-windows7.0">
+        <dependency id="UiPath.System.Activities.Runtime" version="[26.8.2]" />
+      </group>
+    </dependencies>
+  </metadata>
+</package>
