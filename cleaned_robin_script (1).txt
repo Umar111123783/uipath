@@ -1,6 +1,8 @@
-SET responseString TO $''''''
-SET responseStatus TO 0
-Web.InvokeWebService.InvokeWebService Url: $'''https://jsonplaceholder.typicode.com/posts''' Method: Web.Method.Get Accept: $'''application/json''' ContentType: $'''application/json''' ConnectionTimeout: 30 FollowRedirection: True ClearCookies: False FailOnErrorStatus: False EncodeRequestBody: True UserAgent: $'''Mozilla/5.0''' Encoding: Web.Encoding.AutoDetect AcceptUntrustedCertificates: False ResponseHeaders=> ResponseHeaders Response=> responseString StatusCode=> responseStatus
-IF responseStatus < 200 OR responseStatus >= 300 THEN
-    EXIT Code: 0
+SET responseString TO $'''[]'''
+Variables.ConvertJsonToCustomObject Json: responseString CustomObject=> jsonArray
+SET count TO jsonArray.Count
+Variables.CreateNewDatatable InputTable: { ^['UserId', 'PostId', 'Title', 'Body'] } DataTable=> dtPosts
+LOOP FOREACH CurrentItem IN jsonArray
+    SET row_userId TO CurrentItem['userId']
+    Variables.AddRowToDataTable.AppendRowToDataTable DataTable: dtPosts RowToAdd: [row_userId]
 END
