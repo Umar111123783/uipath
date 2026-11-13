@@ -1,7 +1,7 @@
 Display.InputDialog Title: $'''Age Checker''' Message: $'''Please enter your age''' InputType: Display.InputType.SingleLine IsTopMost: False UserInput=> userAgeText ButtonPressed=> ButtonPressed
 IF ButtonPressed = $'''OK''' THEN
-    Text.ToNumber Text: userAgeText Number=> userAgeText_Num
-    IF userAgeText_Num >= 18 THEN
+    Text.ToNumber Text: userAgeText Number=> userAgeNum
+    IF userAgeNum >= 18 THEN
         Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are an adult''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
     ELSE
         Display.ShowMessageDialog.ShowMessage Title: $'''Message''' Message: $'''You are a Minor''' Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False ButtonPressed=> ButtonPressed
