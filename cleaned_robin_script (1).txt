@@ -5,7 +5,11 @@ from typing import List, Dict, Any
 import requests
 import streamlit as st
 
-from llm import DEFAULT_MODEL_NAME, convert_to_robin, is_local_endpoint
+try:
+    from llm import DEFAULT_MODEL_NAME, convert_to_robin, is_local_endpoint
+except ImportError:
+    from llm import convert_to_robin, is_local_endpoint
+    DEFAULT_MODEL_NAME = "openai.global.gpt-4.1"
 from parser import (
     extract_zip,
     build_xml_context,
@@ -261,4 +265,3 @@ if uploaded is not None:
 
     except Exception as ex:
         st.error(f"Error processing project: {str(ex)}")
-
