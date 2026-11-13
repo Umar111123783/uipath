@@ -1,1 +1,264 @@
+import os
+import re
+from pathlib import Path
+from typing import List, Dict, Any
+import requests
+import streamlit as st
+
+from llm import DEFAULT_MODEL_NAME, convert_to_robin, is_local_endpoint
+from parser import (
+    extract_zip,
+    build_xml_context,
+    get_dll_files,
+    get_xaml_files,
+    get_important_files,
+    get_project_tree,
+)
+
+DEFAULT_ENDPOINT = "https://genai-sharedservice-apac.pwcinternal.com/chat/completions"
+
+# ==================================================
+# Streamlit Page Config
+# ==================================================
+st.set_page_config(
+    page_title="UiPath → PAD Robin (Pure LLM)",
+    page_icon="🧠",
+    layout="wide",
+)
+
+st.title("🧠 UiPath XAML → PAD Robin Converter (Pure LLM Engine)")
+st.caption(
+    "Direct AI-powered RPA migration using your chat completions API endpoint (`API-Key` header + `model`/`messages` payload). No local Python AST conversion."
+)
+
+if "llm_endpoint" not in st.session_state:
+    st.session_state["llm_endpoint"] = os.environ.get("LLM_ENDPOINT", DEFAULT_ENDPOINT)
+if "llm_model" not in st.session_state:
+    st.session_state["llm_model"] = os.environ.get("LLM_MODEL", DEFAULT_MODEL_NAME)
+if "llm_api_key" not in st.session_state:
+    st.session_state["llm_api_key"] = os.environ.get("LLM_API_KEY", "")
+
+
+def fetch_available_models(endpoint: str, api_key: str) -> List[str]:
+    """Query gateway /v1/models endpoint to list available models for this key."""
+    if not endpoint.strip() or not api_key.strip():
+        return []
+    base = endpoint.split("/chat/completions")[0].rstrip("/")
+    for path in ["/v1/models", "/models"]:
+        try:
+            resp = requests.get(
+                f"{base}{path}",
+                headers={"API-Key": api_key.strip(), "accept": "application/json"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                models = [
+                    m.get("id") or m.get("model")
+                    for m in data.get("data", [])
+                    if isinstance(m, dict) and (m.get("id") or m.get("model"))
+                ]
+                if models:
+                    return sorted(models)
+        except Exception:
+            pass
+    return []
+
+
+def compress_xaml_for_speed(xaml_content: str) -> str:
+    """Strip visual layout designer bloat (HintSize, ViewState, IdRef) to speed up generation."""
+    cleaned = re.sub(r'<sap:WorkflowViewStateService\.ViewState>.*?</sap:WorkflowViewStateService\.ViewState>', '', xaml_content, flags=re.DOTALL)
+    cleaned = re.sub(r'<sap2010:WorkflowViewState\.IdRef>.*?</sap2010:WorkflowViewState\.IdRef>', '', cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r'\s*sap2010:WorkflowViewState\.IdRef="[^"]*"', '', cleaned)
+    cleaned = re.sub(r'\s*sap:VirtualizedContainerService\.HintSize="[^"]*"', '', cleaned)
+    cleaned = re.sub(r'\s*mc:Ignorable="[^"]*"', '', cleaned)
+    cleaned = re.sub(r'\n\s*\n', '\n', cleaned)
+    return cleaned
+
+
+def execute_pure_llm(
+    api_key: str,
+    model: str,
+    xml_context: str,
+    dlls: List[str],
+    include_node_metadata: bool = False,
+    endpoint: str = "",
+) -> Dict[str, Any]:
+    """Execute conversion strictly through the LLM module with no local Python AST fallback."""
+    return convert_to_robin(
+        api_key=api_key,
+        model=model,
+        xml_context=xml_context,
+        dlls=dlls,
+        include_node_metadata=include_node_metadata,
+        endpoint=endpoint,
+    )
+
+
+# ==================================================
+# Main LLM Endpoint, Model & API Key Form
+# ==================================================
+st.subheader("🔑 LLM Configuration")
+col_ep, col_model, col_key = st.columns([2.2, 1.4, 1.4])
+with col_ep:
+    endpoint = st.text_input(
+        "Endpoint",
+        key="llm_endpoint",
+        placeholder="https://genai-sharedservice-apac.pwcinternal.com/chat/completions",
+        help="Full chat completions API URL (called directly with API-Key header and model+messages payload).",
+    )
+with col_model:
+    model = st.text_input(
+        "Model",
+        key="llm_model",
+        placeholder="openai.global.gpt-4.1",
+        help="Model name sent in the JSON payload (e.g. openai.global.gpt-4.1, azure.gpt-4o).",
+    )
+with col_key:
+    api_key = st.text_input(
+        "API Key",
+        type="password",
+        key="llm_api_key",
+        placeholder="Paste your API-Key...",
+        help="Sent in the API-Key request header.",
+    )
+
+with st.expander("🔍 Gateway Model Helper (Check Available Models for Your Key)"):
+    if st.button("Check Available Models from Endpoint", use_container_width=True):
+        if not api_key.strip():
+            st.warning("Please enter your API Key above to check available models.")
+        else:
+            with st.spinner("Calling /v1/models on gateway..."):
+                avail = fetch_available_models(endpoint, api_key)
+            if avail:
+                st.success(f"Found {len(avail)} models for your key:")
+                st.code("\n".join(avail), language="text")
+            else:
+                st.info("Could not auto-fetch models from /v1/models. Use the exact model name assigned to your key (e.g. `openai.global.gpt-4.1`).")
+
+
+# ==================================================
+# Sidebar Controls
+# ==================================================
+with st.sidebar:
+    st.header("⚙️ LLM Settings")
+
+    st.subheader("🧾 Output Format")
+    include_node_metadata = st.checkbox(
+        "Include # node_id metadata lines",
+        value=True,
+        help="Prefix each Robin action with `# node_id=<Bot>.<index>.<hex>; package=...; action=...; resolved=...` separated by blank lines.",
+    )
+    st.markdown("---")
+
+    has_key_or_local = bool(api_key.strip()) or (bool(endpoint.strip()) and is_local_endpoint(endpoint))
+    if endpoint.strip() and model.strip() and has_key_or_local:
+        st.success(f"✅ Configured\n\n**Model:** `{model.strip()}`\n\n**Endpoint:** `{endpoint.strip()}`")
+    else:
+        st.warning("⚠️ Enter Endpoint, Model, and API Key (optional for localhost) to convert.")
+
+# ==================================================
+# Upload & Conversion
+# ==================================================
+uploaded = st.file_uploader(
+    "Upload UiPath Project (.zip or .nupkg)",
+    type=["zip", "nupkg"],
+)
+
+if uploaded is not None:
+    st.write(f"📄 **File:** `{uploaded.name}` | 📦 **Type:** `{uploaded.type}`")
+
+    try:
+        with st.spinner("Extracting project files..."):
+            project_folder = extract_zip(uploaded)
+            xaml_files = get_xaml_files(project_folder)
+            dlls = get_dll_files(project_folder)
+            important_files = get_important_files(project_folder)
+            project_tree = get_project_tree(project_folder)
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("XAML Workflows", len(xaml_files))
+        col2.metric("DLL Dependencies", len(dlls))
+        col3.metric("Key Files", len(important_files))
+
+        with st.expander("📁 Project Structure & Workflows"):
+            st.code(project_tree, language="text")
+            st.write("**Detected Workflows:**")
+            for x in xaml_files:
+                st.write(f"- `{Path(x).name}`")
+
+        # ==================================================
+        # Generate Button
+        # ==================================================
+        if st.button("🚀 Generate with LLM (Pure AI)", type="primary", use_container_width=True):
+            if not endpoint.strip():
+                st.error("🔗 Please enter an Endpoint URL before generating.")
+                st.stop()
+            if not model.strip():
+                st.error("🤖 Please enter a Model name before generating.")
+                st.stop()
+            if not api_key.strip() and not is_local_endpoint(endpoint):
+                st.error("🔑 Please enter your API Key before generating.")
+                st.stop()
+
+            with st.spinner("Building optimized project context for LLM..."):
+                raw_xml = build_xml_context(project_folder)
+                xml_context = compress_xaml_for_speed(raw_xml)
+                st.caption(f"Loaded {len(xml_context):,} characters of optimized XAML context (compressed by {len(raw_xml) - len(xml_context):,} chars).")
+
+            with st.spinner(f"Generating Robin Script using {model}... (Pure LLM)"):
+                result = execute_pure_llm(
+                    api_key=api_key,
+                    model=model,
+                    xml_context=xml_context,
+                    dlls=dlls,
+                    include_node_metadata=include_node_metadata,
+                    endpoint=endpoint,
+                )
+
+            if not result.get("success"):
+                st.error(f"❌ **LLM Conversion Failed:**\n\n{result.get('error')}")
+                st.info(
+                    "💡 Pure LLM mode does not perform local Python fallback. Check your endpoint, model name, API key, or server status."
+                )
+                if result.get("raw_response"):
+                    with st.expander("🔍 Raw Server Response"):
+                        st.code(result.get("raw_response"), language="json")
+                st.stop()
+
+            used_m = result.get("model_used", model)
+            used_ep = result.get("endpoint_used", endpoint)
+            st.success(f"🤖 **Generated Exclusively by AI Model (`{used_m}`)** via `{used_ep}`")
+
+            st.subheader("⚡ Generated Power Automate Desktop (Robin) Script")
+            st.info(
+                "💡 **How to Copy Without HTML Corruption (`<br>`, `&gt;`, `<a href>`):**\n"
+                "1. Click inside the **Plain Text** box below and press **Ctrl + A → Ctrl + C**, or click **Download Robin Script (.txt)**.\n"
+                "2. Open your desktop flow in Power Automate Desktop.\n"
+                "3. Click on the central canvas and press **Ctrl + V**."
+            )
+
+            robin_code = result.get("robin_script", "")
+            st.text_area(
+                "Plain Text Robin Script (Copy-Safe: Ctrl+A → Ctrl+C — never adds <br> or &gt;)",
+                value=robin_code,
+                height=320,
+            )
+
+            st.download_button(
+                label="📥 Download Robin Script (.txt)",
+                data=robin_code.encode("utf-8"),
+                file_name="robin_script_llm.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
+
+            with st.expander("Formatted Code View (Use Plain Text Box Above to Copy)"):
+                st.code(robin_code, language="text")
+
+            with st.expander("🔍 View Raw LLM Model Response"):
+                st.text(result.get("raw_response", ""))
+
+    except Exception as ex:
+        st.error(f"Error processing project: {str(ex)}")
 
