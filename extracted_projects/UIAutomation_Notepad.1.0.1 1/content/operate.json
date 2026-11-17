@@ -1,0 +1,21 @@
+{
+  "$schema": "https://cloud.uipath.com/draft/2024-12/operate",
+  "contentType": "Process",
+  "projectId": "5cf33211-b2e3-469a-8b9f-838c9ff18425",
+  "main": "Main.xaml",
+  "dependencies": {
+    "UiPath.System.Activities.Runtime": "[26.8.2]",
+    "UiPath.UIAutomation.Activities.Runtime": "[26.10.5]"
+  },
+  "targetFramework": "Windows",
+  "dotNetVersion": "net10.0",
+  "runtimeOptions": {
+    "isAttended": false,
+    "requiresUserInteraction": true,
+    "robotVersion": "26.0.204"
+  },
+  "designOptions": {
+    "projectProfile": "Development",
+    "fileInfoCollection": []
+  }
+}

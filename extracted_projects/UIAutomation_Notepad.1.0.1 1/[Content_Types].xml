@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
+  <Default Extension="psmdcp" ContentType="application/vnd.openxmlformats-package.core-properties+xml" />
+  <Default Extension="md" ContentType="application/octet" />
+  <Default Extension="json" ContentType="application/octet" />
+  <Default Extension="xaml" ContentType="application/octet" />
+  <Default Extension="uiproj" ContentType="application/octet" />
+  <Default Extension="metadata" ContentType="application/octet" />
+  <Default Extension="type" ContentType="application/octet" />
+  <Default Extension="dll" ContentType="application/octet" />
+  <Default Extension="png" ContentType="application/octet" />
+  <Default Extension="content" ContentType="application/octet" />
+  <Default Extension="hash" ContentType="application/octet" />
+  <Default Extension="nuspec" ContentType="application/octet" />
+  <Override PartName="/content/.storage/.runtime/AncestryPersistenceService/6ee150c5-58df-4b19-893d-1f18ff95b168" ContentType="application/octet" />
+  <Override PartName="/content/.storage/.runtime/AncestryPersistenceService/a803adc4-8cc0-4c33-8432-c394d225ba2a" ContentType="application/octet" />
+  <Override PartName="/content/.storage/.runtime/AncestryPersistenceService/be21bf07-c3cb-4dca-93de-96076f95e8b2" ContentType="application/octet" />
+  <Override PartName="/content/.storage/.runtime/AncestryPersistenceService/c5bf2f4a-44c3-4a71-bd44-02de6b5c6839" ContentType="application/octet" />
+  <Override PartName="/content/.storage/.runtime/AncestryPersistenceService/db8cacc8-a32d-489e-96c0-27f3581f55c5" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/.data/ObjectRepositoryScreenData/.attributes/SearchHash" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/.data/ObjectRepositoryScreenData/.images/.design/0BTGskCIKJU2j_lHxSZEfZg" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/JOcF/.data/ObjectRepositoryTargetData/.attributes/SearchHash" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/pN9y/.data/ObjectRepositoryTargetData/.attributes/SearchHash" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/Tdn3/.data/ObjectRepositoryTargetData/.attributes/SearchHash" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/yPKU/.data/ObjectRepositoryTargetData/.attributes/SearchHash" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/JOcF/.data/ObjectRepositoryTargetData/.images/.design/0U1vWs77PVU-SbaatoqYXQA" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/pN9y/.data/ObjectRepositoryTargetData/.images/.design/0xgbAC4rAoEasamuFY9jqEw" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/Tdn3/.data/ObjectRepositoryTargetData/.images/.design/0iyQBHbRWnEuqDA8myB3yDQ" ContentType="application/octet" />
+  <Override PartName="/content/.objects/KDYp/IS7F/8T3V/yPKU/.data/ObjectRepositoryTargetData/.images/.design/0pzwx_Se-aE6nxgz1ALEDsQ" ContentType="application/octet" />
+</Types>
