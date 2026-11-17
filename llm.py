@@ -2,8 +2,10 @@
 import json
 import requests
 import re
-
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from parser import sanitize_robin_script, apply_robin_node_metadata
 
 
 # ============================================================
@@ -14,7 +16,15 @@ PROVIDER_PRESETS = {
     "PwC GenAI": {
         "endpoint": "https://genai-sharedservice-apac.pwcinternal.com/chat/completions",
         "model": "openai.global.gpt-4.1",
-    }
+    },
+    "Google Gemini": {
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "model": "gemini-2.0-flash",
+    },
+    "OpenAI": {
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "model": "gpt-4o",
+    },
 }
 
 
@@ -39,10 +49,10 @@ def is_local_endpoint(endpoint: str) -> bool:
 # RESPONSE CLEANING
 # ============================================================
 
-def clean_robin_script(content: str) -> str:
+def clean_robin_script(content: str, keep_node_metadata: bool = False) -> str:
     """
     Remove Markdown code fences and unwanted response wrappers.
-    Preserve native PAD Robin syntax.
+    Sanitize HTML entities and preserve native PAD Robin syntax.
     """
 
     if not content:
@@ -63,20 +73,30 @@ def clean_robin_script(content: str) -> str:
         content
     )
 
-    return content.strip()
+    return sanitize_robin_script(content, keep_node_metadata=keep_node_metadata)
 
 
 def extract_response_content(result_json: dict) -> str:
     """
-    Extract content from an OpenAI-compatible API response.
+    Extract content from an OpenAI-compatible or Gemini API response.
     Supports string and list-based message content.
     """
+
+    # Check for Gemini candidates
+    candidates = result_json.get("candidates", [])
+    if candidates:
+        candidate = candidates[0]
+        content_obj = candidate.get("content", {})
+        parts = content_obj.get("parts", [])
+        if parts:
+            part_texts = [p.get("text", "") for p in parts if isinstance(p, dict)]
+            return "\n".join([t for t in part_texts if t])
 
     choices = result_json.get("choices", [])
 
     if not choices:
         raise ValueError(
-            "API response does not contain any choices."
+            "API response does not contain any choices or candidates."
         )
 
     message = choices[0].get("message", {})
@@ -139,6 +159,7 @@ def parse_conversion_response(content: str) -> Dict[str, Any]:
         if isinstance(parsed, dict):
 
             return {
+                "summary": str(parsed.get("summary", "")),
                 "variables": str(parsed.get("variables", "")),
                 "robin_script": clean_robin_script(
                     str(parsed.get("robin_script", ""))
@@ -161,6 +182,7 @@ def parse_conversion_response(content: str) -> Dict[str, Any]:
             if isinstance(parsed, dict):
 
                 return {
+                    "summary": str(parsed.get("summary", "")),
                     "variables": str(parsed.get("variables", "")),
                     "robin_script": clean_robin_script(
                         str(parsed.get("robin_script", ""))
@@ -173,6 +195,7 @@ def parse_conversion_response(content: str) -> Dict[str, Any]:
 
     # Fallback: treat response as plain Robin script
     return {
+        "summary": "",
         "variables": "",
         "robin_script": clean_robin_script(content),
         "notes": "The LLM returned plain text instead of the requested JSON structure."
@@ -197,13 +220,14 @@ def convert_to_robin(
     try:
 
         # ----------------------------------------------------
-        # INPUT VALIDATION
+        # INPUT VALIDATION & DEFAULT ENDPOINT
         # ----------------------------------------------------
 
         if not endpoint:
-            raise ValueError(
-                "LLM API endpoint is missing."
-            )
+            if "gemini" in (model or "").lower():
+                endpoint = PROVIDER_PRESETS.get("Google Gemini", {}).get("endpoint", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
+            else:
+                endpoint = PROVIDER_PRESETS.get("PwC GenAI", {}).get("endpoint", "https://genai-sharedservice-apac.pwcinternal.com/chat/completions")
 
         if not model:
             raise ValueError(
@@ -213,6 +237,11 @@ def convert_to_robin(
         if not xml_context:
             raise ValueError(
                 "UiPath workflow XML context is empty."
+            )
+
+        if not api_key and not is_local_endpoint(endpoint):
+            raise ValueError(
+                "API Key is required for remote endpoints."
             )
 
         # ----------------------------------------------------
@@ -755,46 +784,73 @@ Do not invent missing actions or dependencies.
 """
 
         # ----------------------------------------------------
-        # API HEADERS
+        # ENDPOINT ROUTING & AUTHENTICATION
         # ----------------------------------------------------
 
+        is_local = is_local_endpoint(endpoint)
+        if not api_key and not is_local:
+            raise ValueError("API Key is required for remote endpoints.")
+
+        target_url = endpoint
         headers = {
             "Content-Type": "application/json"
         }
 
-        if api_key:
-
-            headers["Authorization"] = (
-                f"Bearer {api_key}"
-            )
+        if "openai.azure.com" in endpoint:
+            clean_ep = endpoint.rstrip("/")
+            target_url = f"{clean_ep}/openai/deployments/{model}/chat/completions?api-version=2024-02-15-preview"
+            if api_key:
+                headers["api-key"] = api_key
+        elif ":generateContent" in endpoint:
+            sep = "&" if "?" in endpoint else "?"
+            target_url = f"{endpoint}{sep}key={api_key}" if api_key else endpoint
+        else:
+            norm = endpoint.rstrip("/")
+            if norm.endswith("/v1") or norm.endswith("/api/v1") or (is_local and not norm.endswith("/chat/completions")):
+                target_url = f"{norm}/chat/completions"
+            else:
+                target_url = endpoint
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
 
         # ----------------------------------------------------
         # API PAYLOAD
         # ----------------------------------------------------
 
-        payload = {
-            "model": model,
-
-            "messages": [
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt
+        if ":generateContent" in target_url:
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": f"{system_prompt}\n\n{user_prompt}"}]
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": temperature
                 }
-            ],
-
-            "temperature": temperature
-        }
+            }
+        else:
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
+                "temperature": temperature
+            }
 
         # ----------------------------------------------------
         # API REQUEST
         # ----------------------------------------------------
 
         response = requests.post(
-            endpoint,
+            target_url,
             headers=headers,
             json=payload,
             timeout=300
@@ -825,13 +881,36 @@ Do not invent missing actions or dependencies.
             content
         )
 
-        robin_script = conversion["robin_script"]
+        raw_script = conversion["robin_script"]
 
-        if not robin_script:
-
+        if not raw_script:
             raise ValueError(
                 "The LLM returned an empty Robin script. "
                 "Check the model response and API configuration."
+            )
+
+        robin_script = sanitize_robin_script(
+            raw_script,
+            keep_node_metadata=False,
+            preserve_blank_lines=False,
+        )
+
+        if include_node_metadata:
+            proj_name = "Workflow"
+            m = re.search(r'"name"\s*:\s*"([^"]+)"', xml_context)
+            if m:
+                proj_name = m.group(1).strip()
+            
+            var_types = {}
+            for vm in re.finditer(r'<Variable\s+[^>]*x:TypeArguments="([^"]+)"[^>]*Name="([^"]+)"', xml_context):
+                var_types[vm.group(2)] = vm.group(1)
+            for vm in re.finditer(r'<Variable\s+[^>]*Name="([^"]+)"[^>]*x:TypeArguments="([^"]+)"', xml_context):
+                var_types[vm.group(1)] = vm.group(2)
+
+            robin_script = apply_robin_node_metadata(
+                robin_script,
+                workflow_name=proj_name,
+                var_types=var_types,
             )
 
         # ----------------------------------------------------
@@ -842,8 +921,11 @@ Do not invent missing actions or dependencies.
 
             "success": True,
 
+            "engine": "LLM",
+
             "summary": (
-                "PAD Robin script generated successfully."
+                conversion.get("summary")
+                or "PAD Robin script generated successfully."
             ),
 
             "variables": conversion["variables"],
@@ -890,7 +972,7 @@ Do not invent missing actions or dependencies.
 
             "model_used": model,
 
-            "endpoint_used": endpoint
+            "endpoint_used": target_url
         }
 
     # ========================================================
