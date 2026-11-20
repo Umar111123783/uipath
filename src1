@@ -1,132 +1,145 @@
 # --- MASTER UNIFIED FLOW (Self-Contained 1-Click Paste for Main tab) ---
-# Deep scanned 5 workflow(s) across all project folders.
+# Deep scanned 12 workflow(s) across all project folders.
 # 100% Paste-Validated for PAD Designer canvas (0 syntax errors, 0 external tab dependencies)
 
 # ========================================================
-# MAIN ORCHESTRATOR: SourcingBot/Main.xaml
+# MAIN ORCHESTRATOR: EnterpriseIntelligentAutomationBot/Main.xaml
 # ========================================================
-# --- Migration Diagnostics & Missing Parts Notice ---
-# [INFO] Missing Part: Error Handling Block Architecture
-# -> Action: Wrap sensitive steps inside BLOCK ... ON BLOCK ERROR ... END.
-# [INFO] Missing Part: Child Workflow File (.xaml) Aggregation
-# -> Action: Ensure the called workflow is created as a Subflow tab in PAD under the same name.
 
-SET strUserInput TO $''''''
-SET strJobDescription TO $''''''
-SET strRequisitionID TO $''''''
-SET strRequiredSkills TO $''''''
-SET strAdditionalSkills TO $''''''
-SET Config TO $''''''
-SET browserObj TO $''''''
-SET exception TO $''''''
+SET workflowMessage TO $''''''
 
-# Custom Input
-Display.InputDialog InputType: Display.InputType.SingleLine IsTopMost: False DefaultValue: $'''SEARCH:Software Engineer:REQ-101:Python, PAD:SQL, APIs''' Message: $'''Enter Colon-Separated Sourcing Input (Format: ACTION:JobTitle:ReqID:ReqSkills:ExtraSkills):''' Title: $'''Sourcing Bot Input''' UserInput=> strUserInput ButtonPressed=> ButtonPressed
-Text.SplitText.SplitWithDelimiter Text: strUserInput IsRegEx: False CustomDelimiter: $''':''' Result=> strUserInput_Split
-IF strUserInput_Split[0] <> $'''SEARCH''' THEN
-    # Throw: BusinessRuleException ('Form Exited')
-    FlowControl.ThrowCustomError CustomErrorCode: $'''BusinessRuleException''' CustomErrorMessage: $'''Form Exited'''
-END
-SET strJobDescription TO strUserInput_Split[1]
-SET strRequisitionID TO strUserInput_Split[2]
-SET strRequiredSkills TO strUserInput_Split[3]
-SET strAdditionalSkills TO strUserInput_Split[4]
-# Invoke Workflow: Framework\InitConfig.xaml
-# Invoke Workflow: Framework\SaveJD.xaml
-# Invoke Workflow: Framework\DownloadCandidateList.xaml
+SET workflowMessage TO $'''"Main orchestration started"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"Main completed."''' LogLevel: Logging.LogLevel.InfoLevel
 
 # ========================================================
-# SUBFLOW: SourcingBot/Framework/AlterCandidatesTable.xaml
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/Cleanup.xaml
 # ========================================================
-**REGION AlterCandidatesTable
+**REGION Cleanup
 
-SET in_strCandidatesExcelFilePath TO $''''''
-SET strExcelSheetName TO $''''''
-SET ExcelWorkbookScope TO $''''''
+SET workflowMessage TO $''''''
 
-Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
-SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
-Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
-# Activity: Get Workbook Sheet [ExcelGetWorkbookSheet]
-
-Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance XmlMapName: $'''''' DocumentPath: excelPath DocumentFormat: Excel.ExcelFormat.FromExtension
+SET workflowMessage TO $'''"Close resources and clean temporary artifacts"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"Cleanup completed."''' LogLevel: Logging.LogLevel.InfoLevel
 **ENDREGION
 
 # ========================================================
-# SUBFLOW: SourcingBot/Framework/DownloadCandidateList.xaml
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/ExceptionHandler.xaml
 # ========================================================
-**REGION DownloadCandidateList
-# [INFO] Missing Part: Desktop / Web UI Control Repository Binding
-# -> Action: If targeting specific deeply-nested fields, capture the control using the PAD UI Element picker.
+**REGION ExceptionHandler
 
-SET out_Browser TO $''''''
-SET in_config TO $''''''
-SET in_strRequisitionID TO $''''''
+SET workflowMessage TO $''''''
 
-System.RunApplication.RunApplication ApplicationPath: $'''notepad.exe''' CommandLineArguments: $'''''' WorkingDirectory: $'''''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppPID
-WAIT 1
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%in_strRequisitionID%{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: False
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+SET workflowMessage TO $'''"Capture exception details and classify business/system errors"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"ExceptionHandler completed."''' LogLevel: Logging.LogLevel.InfoLevel
 **ENDREGION
 
 # ========================================================
-# SUBFLOW: SourcingBot/Framework/InitConfig.xaml
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/GenerateReport.xaml
+# ========================================================
+**REGION GenerateReport
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Generate processing summary report"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"GenerateReport completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/GetInputFiles.xaml
+# ========================================================
+**REGION GetInputFiles
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Discover input files for processing"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"GetInputFiles completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/InitConfig.xaml
 # ========================================================
 **REGION InitConfig
 
-SET fileConfig TO $''''''
-SET config TO $''''''
-Variables.CreateNewDatatable InputTable: { ^['Column1'] } DataTable=> dt_settings
-SET ExcelWorkbookScope TO $''''''
-SET row TO $''''''
+SET workflowMessage TO $''''''
 
-Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
-SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
-Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
-# Activity: Read Range [ExcelReadRange]
-LOOP FOREACH row IN dt_settings
-    SET row['NAME'] TO row['VALUE']
-END
-
-Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance XmlMapName: $'''''' DocumentPath: excelPath DocumentFormat: Excel.ExcelFormat.FromExtension
+SET workflowMessage TO $'''"Initialize configuration and runtime settings"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"InitConfig completed."''' LogLevel: Logging.LogLevel.InfoLevel
 **ENDREGION
 
 # ========================================================
-# SUBFLOW: SourcingBot/Framework/SaveJD.xaml
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/InitializeLogging.xaml
 # ========================================================
-**REGION SaveJD
+**REGION InitializeLogging
 
-SET in_strRequiredSkills TO $''''''
-SET in_strAdditionalSkills TO $''''''
-SET in_strJobDescription TO $''''''
-SET in_strRequisitionID TO $''''''
-Variables.CreateNewList List=> jdJsonArray
-SET strJDList TO $''''''
-SET newJD TO $''''''
-SET intExists TO $''''''
-SET intloopCount TO 0
+SET workflowMessage TO $''''''
 
-File.ReadTextFromFile.ReadText File: $'''Data\config\JDList.json''' Encoding: File.TextFileEncoding.UTF8 Content=> strJDList
-Variables.ConvertJsonToCustomObject Json: strJDList CustomObject=> jdJsonArray
-LOOP WHILE True
-    IF jdJsonArray[intloopCount]['JD_Title'] = in_strJobDescription THEN
-        SET jdJsonArray[intloopCount]["Requisition_ID"] TO in_strRequisitionID
-        SET jdJsonArray[intloopCount]["Key_Skills"] TO in_strRequiredSkills
-        SET jdJsonArray[intloopCount]["May_Know_Skills"] TO in_strAdditionalSkills
-        SET intExists TO 1
-    END
-    SET intloopCount TO intloopCount + 1
-END
-IF intExists = 0 THEN
-    Variables.ConvertJsonToCustomObject Json: $'''{ \'JD_Title\': \'%in_strJobDescription%\', \'Key_Skills\': \'%in_strRequiredSkills%\', \'May_Know_Skills\': \'%in_strAdditionalSkills%\' }''' CustomObject=> new_jdJsonArrayItem
-    Variables.AddItemToList Item: new_jdJsonArrayItem List: jdJsonArray
-END
-Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
-SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
-File.WriteText File: $'''Data\config\JDList.json''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''%jdJsonArray%'''
-File.WriteText File: $'''Data\config\webjd.txt''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''data = \'%jdJsonArray%\';'''
+SET workflowMessage TO $'''"Initialize structured logging context"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"InitializeLogging completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/LoadConfig.xaml
+# ========================================================
+**REGION LoadConfig
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Load Config/Config.json and validate required settings"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"LoadConfig completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/ProcessTransaction.xaml
+# ========================================================
+**REGION ProcessTransaction
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Execute one business transaction"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"ProcessTransaction completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/RetryHandler.xaml
+# ========================================================
+**REGION RetryHandler
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Apply configured retry policy for transient failures"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"RetryHandler completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/UpdateStatus.xaml
+# ========================================================
+**REGION UpdateStatus
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Update transaction processing status"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"UpdateStatus completed."''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: EnterpriseIntelligentAutomationBot/Workflows/ValidateInput.xaml
+# ========================================================
+**REGION ValidateInput
+
+SET workflowMessage TO $''''''
+
+SET workflowMessage TO $'''"Validate input records and mandatory fields"'''
+Logging.LogMessage Message: $'''%workflowMessage%''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''"ValidateInput completed."''' LogLevel: Logging.LogLevel.InfoLevel
 **ENDREGION
