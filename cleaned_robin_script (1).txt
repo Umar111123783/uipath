@@ -1,31 +1,18 @@
-# --- Converted from Workflow XAML to Power Automate Desktop (Robin) ---
-# Paste directly into PAD Designer canvas (PAD 2.74 Validated)
-
-SET responseString TO $''''''
-SET jsonObj TO new JObject()
-SET jsonArray TO New JArray()
-SET postId TO 1
-SET count TO jsonArray.Count
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''"Total Posts: " + count.ToString''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-Display.InputDialog InputType: Display.InputType.SingleLine IsTopMost: False DefaultValue: $'''''' Message: $'''Enter the post id''' Title: $'''Get Single Post Details''' UserInput=> postId ButtonPressed=> ButtonPressed
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''"Title :"+jsonObj("title").ToString + vbCrLf + "Body :" + jsonObj("body").ToString''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-SET requestBody TO $'''{""title"":""" & newPostTitle & """,""body"":""" & newPostDesc & """,""userId"":1}'''
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''"Created new Post response : " + responseString''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-SET requestBody TO $'''{""id"":1,
-""title"":""Updated Title"",
-""body"":""Updated Body"",
-""userId"":1}'''
-SET requestBody TO $'''{""title"":""" & newPostTitle & """,""body"":""" & newPostDesc & """,""id"":1,""userId"":1}'''
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''"Update Post details API response: "+ responseString''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-Display.InputDialog InputType: Display.InputType.SingleLine IsTopMost: False DefaultValue: $'''''' Message: $'''Enter Post Id to delete''' Title: $'''Delete Post''' UserInput=> delPostId ButtonPressed=> ButtonPressed
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''Post wit id: "+delPostId +"  has been deleted!''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''Calling Updated Post list for User 1''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-Display.ShowMessageDialog.ShowMessage Icon: Display.Icon.None Buttons: Display.Buttons.OK DefaultButton: Display.DefaultButton.Button1 IsTopMost: False Message: $'''"Title: " + currentJToken("title").ToString +vbCrLf + "Desc :" + currentJToken("body").ToString  + vbCrLf + "Id: " + currentJToken("id").ToString''' Title: $'''Message Box''' ButtonPressed=> ButtonPressed
-SET excelPath TO Path.Combine(
-Environment.CurrentDirectory,
-"User_1_all_posts.xlsx")
-Excel.LaunchExcel.LaunchAndOpen Path: $'''C:\Data\Workbook.xlsx''' Visible: True ReadOnly: False LoadAddInsAndMacros: False Instance=> ExcelInstance
-Excel.LaunchExcel.LaunchAndOpen Path: $'''excelPath''' Visible: True ReadOnly: False LoadAddInsAndMacros: False Instance=> ExcelInstance
-Excel.WriteToExcel.WriteCell Instance: ExcelInstance Value: ExcelData Column: 1 Row: 1
-
-Excel.CloseExcel.CloseAndSave Instance: ExcelInstance
+🔄 End-to-End Offline Workflow
+1. INGESTION  ➔  2. CACHE CHECK  ➔  3. AST TRANSPILATION  ➔  4. SELF-HEALING  ➔  5. DIAGNOSTICS & PASTE
+Ingestion: You upload a .nupkg package or pick one from the local data/ folder. The app reads it in memory without writing temporary files.
+Golden Cache Lookup: The converter checks robin_database.db. If this exact workflow was previously verified, it loads the 0-error Robin script immediately (0ms latency).
+AST Transpilation: If new:
+Variable Discovery: Scans all variables, properties, and loop iterators; generates type-safe declarations (DataTable, List, Number, Boolean, String) at the top.
+Activity Mapping: Converts UiPath activities into exact PAD Robin syntax:
+UI Automation: NApplicationCard, NKeyboardShortcuts, NTypeInto, NClick, NCheckState
+Office & Files: ExcelApplicationScope, ReadRange, WriteRange, ReadPDFText, ZipFiles
+Logic & Flow: If, While, ForEach, Switch, Assign, TryCatch
+Scripting: InvokeCode, InvokePowerShell, InvokeWorkflowFile (CALL Subflow)
+Universal Fallback: Any unmapped custom activity is preserved as an informative visual action card (# Activity: [Name] [Tag]), ensuring no workflow step is ever silently dropped.
+Self-Healing Syntax Validation:
+The generated script is run against check-flows.js.
+If any variable was used without being declared, Python captures the error via regex, injects SET Var TO $'''''' at the top, and loops until 0 errors are achieved.
+Real-Time Diagnostics & Output:
+The UI evaluates migration_rules.json and alerts you if manual steps are required (e.g., configuring CyberArk credentials, setting up SAP GUI scripting, or binding UI elements).
+You click inside the code box, press Ctrl+A → Ctrl+C, switch to Power Automate Desktop, and press Ctrl+V
