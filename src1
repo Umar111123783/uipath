@@ -1,0 +1,57 @@
+# --- MASTER UNIFIED FLOW (Self-Contained 1-Click Paste for Main tab) ---
+# Deep scanned 4 workflow(s) across all project folders.
+# 100% Paste-Validated for PAD Designer canvas (0 syntax errors, 0 external tab dependencies)
+
+# ========================================================
+# MAIN ORCHESTRATOR: CrudOperation_Advanced/Main.xaml
+# ========================================================
+
+Variables.CreateNewList List=> InputRecords
+SET SuccessCount TO 0
+SET FailureCount TO 0
+SET SkippedCount TO 0
+
+Logging.LogMessage Message: $'''CRUD automation started.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 1: Load Config/settings.json and validate required configuration.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 2: Read Data/Crud_Input.xlsx into InputRecords.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 3: For each row, invoke Workflows/ValidateRecord.xaml.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 4: Invoke Workflows/ProcessRecord.xaml for valid rows.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 5: Invoke Workflows/AuditResult.xaml after each row.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''TODO 6: Export run summary and failed rows.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''CRUD automation workflow blueprint loaded. Configure the application adapter before production use.''' LogLevel: Logging.LogLevel.InfoLevel
+
+# ========================================================
+# SUBFLOW: CrudOperation_Advanced/Workflows/AuditResult.xaml
+# ========================================================
+**REGION AuditResult
+
+
+Logging.LogMessage Message: $'''Append Timestamp, RunId, ExternalId, Operation, Status, Attempts, Message and TargetRecordId.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''Never write passwords, access tokens or other secrets to the audit log.''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: CrudOperation_Advanced/Workflows/ProcessRecord.xaml
+# ========================================================
+**REGION ProcessRecord
+
+
+Logging.LogMessage Message: $'''Search target application by ExternalId before performing any mutation.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''CREATE: if no match, open create form, populate fields, submit, verify saved record.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''READ: open matching record, extract fields, compare with expected values.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''UPDATE: require exactly one match, open edit form, change only supplied fields, save and verify.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''DELETE: require exactly one match and DeleteConfirmed=true, delete, then verify absence.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''If multiple matches are found, stop this row as a data-integrity exception.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''Retry transient UI/network failures up to configured MaxRetries; do not retry validation failures.''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: CrudOperation_Advanced/Workflows/ValidateRecord.xaml
+# ========================================================
+**REGION ValidateRecord
+
+
+Logging.LogMessage Message: $'''Validate Operation, ExternalId, Title, Body and optional Owner.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''Reject unsupported operations; normalize whitespace; enforce configured length limits.''' LogLevel: Logging.LogLevel.InfoLevel
+Logging.LogMessage Message: $'''Return IsValid and ValidationMessage to caller.''' LogLevel: Logging.LogLevel.InfoLevel
+**ENDREGION
