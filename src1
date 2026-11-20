@@ -1,57 +1,132 @@
 # --- MASTER UNIFIED FLOW (Self-Contained 1-Click Paste for Main tab) ---
-# Deep scanned 4 workflow(s) across all project folders.
+# Deep scanned 5 workflow(s) across all project folders.
 # 100% Paste-Validated for PAD Designer canvas (0 syntax errors, 0 external tab dependencies)
 
 # ========================================================
-# MAIN ORCHESTRATOR: CrudOperation_Advanced/Main.xaml
+# MAIN ORCHESTRATOR: SourcingBot/Main.xaml
 # ========================================================
+# --- Migration Diagnostics & Missing Parts Notice ---
+# [INFO] Missing Part: Error Handling Block Architecture
+# -> Action: Wrap sensitive steps inside BLOCK ... ON BLOCK ERROR ... END.
+# [INFO] Missing Part: Child Workflow File (.xaml) Aggregation
+# -> Action: Ensure the called workflow is created as a Subflow tab in PAD under the same name.
 
-Variables.CreateNewList List=> InputRecords
-SET SuccessCount TO 0
-SET FailureCount TO 0
-SET SkippedCount TO 0
+SET strUserInput TO $''''''
+SET strJobDescription TO $''''''
+SET strRequisitionID TO $''''''
+SET strRequiredSkills TO $''''''
+SET strAdditionalSkills TO $''''''
+SET Config TO $''''''
+SET browserObj TO $''''''
+SET exception TO $''''''
 
-Logging.LogMessage Message: $'''CRUD automation started.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 1: Load Config/settings.json and validate required configuration.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 2: Read Data/Crud_Input.xlsx into InputRecords.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 3: For each row, invoke Workflows/ValidateRecord.xaml.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 4: Invoke Workflows/ProcessRecord.xaml for valid rows.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 5: Invoke Workflows/AuditResult.xaml after each row.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''TODO 6: Export run summary and failed rows.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''CRUD automation workflow blueprint loaded. Configure the application adapter before production use.''' LogLevel: Logging.LogLevel.InfoLevel
+# Custom Input
+Display.InputDialog InputType: Display.InputType.SingleLine IsTopMost: False DefaultValue: $'''SEARCH:Software Engineer:REQ-101:Python, PAD:SQL, APIs''' Message: $'''Enter Colon-Separated Sourcing Input (Format: ACTION:JobTitle:ReqID:ReqSkills:ExtraSkills):''' Title: $'''Sourcing Bot Input''' UserInput=> strUserInput ButtonPressed=> ButtonPressed
+Text.SplitText.SplitWithDelimiter Text: strUserInput IsRegEx: False CustomDelimiter: $''':''' Result=> strUserInput_Split
+IF strUserInput_Split[0] <> $'''SEARCH''' THEN
+    # Throw: BusinessRuleException ('Form Exited')
+    FlowControl.ThrowCustomError CustomErrorCode: $'''BusinessRuleException''' CustomErrorMessage: $'''Form Exited'''
+END
+SET strJobDescription TO strUserInput_Split[1]
+SET strRequisitionID TO strUserInput_Split[2]
+SET strRequiredSkills TO strUserInput_Split[3]
+SET strAdditionalSkills TO strUserInput_Split[4]
+# Invoke Workflow: Framework\InitConfig.xaml
+# Invoke Workflow: Framework\SaveJD.xaml
+# Invoke Workflow: Framework\DownloadCandidateList.xaml
 
 # ========================================================
-# SUBFLOW: CrudOperation_Advanced/Workflows/AuditResult.xaml
+# SUBFLOW: SourcingBot/Framework/AlterCandidatesTable.xaml
 # ========================================================
-**REGION AuditResult
+**REGION AlterCandidatesTable
 
+SET in_strCandidatesExcelFilePath TO $''''''
+SET strExcelSheetName TO $''''''
+SET ExcelWorkbookScope TO $''''''
 
-Logging.LogMessage Message: $'''Append Timestamp, RunId, ExternalId, Operation, Status, Attempts, Message and TargetRecordId.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''Never write passwords, access tokens or other secrets to the audit log.''' LogLevel: Logging.LogLevel.InfoLevel
+Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
+SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
+Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
+# Activity: Get Workbook Sheet [ExcelGetWorkbookSheet]
+
+Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance XmlMapName: $'''''' DocumentPath: excelPath DocumentFormat: Excel.ExcelFormat.FromExtension
 **ENDREGION
 
 # ========================================================
-# SUBFLOW: CrudOperation_Advanced/Workflows/ProcessRecord.xaml
+# SUBFLOW: SourcingBot/Framework/DownloadCandidateList.xaml
 # ========================================================
-**REGION ProcessRecord
+**REGION DownloadCandidateList
+# [INFO] Missing Part: Desktop / Web UI Control Repository Binding
+# -> Action: If targeting specific deeply-nested fields, capture the control using the PAD UI Element picker.
 
+SET out_Browser TO $''''''
+SET in_config TO $''''''
+SET in_strRequisitionID TO $''''''
 
-Logging.LogMessage Message: $'''Search target application by ExternalId before performing any mutation.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''CREATE: if no match, open create form, populate fields, submit, verify saved record.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''READ: open matching record, extract fields, compare with expected values.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''UPDATE: require exactly one match, open edit form, change only supplied fields, save and verify.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''DELETE: require exactly one match and DeleteConfirmed=true, delete, then verify absence.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''If multiple matches are found, stop this row as a data-integrity exception.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''Retry transient UI/network failures up to configured MaxRetries; do not retry validation failures.''' LogLevel: Logging.LogLevel.InfoLevel
+System.RunApplication.RunApplication ApplicationPath: $'''notepad.exe''' CommandLineArguments: $'''''' WorkingDirectory: $'''''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppPID
+WAIT 1
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%in_strRequisitionID%{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: False
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
 **ENDREGION
 
 # ========================================================
-# SUBFLOW: CrudOperation_Advanced/Workflows/ValidateRecord.xaml
+# SUBFLOW: SourcingBot/Framework/InitConfig.xaml
 # ========================================================
-**REGION ValidateRecord
+**REGION InitConfig
 
+SET fileConfig TO $''''''
+SET config TO $''''''
+Variables.CreateNewDatatable InputTable: { ^['Column1'] } DataTable=> dt_settings
+SET ExcelWorkbookScope TO $''''''
+SET row TO $''''''
 
-Logging.LogMessage Message: $'''Validate Operation, ExternalId, Title, Body and optional Owner.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''Reject unsupported operations; normalize whitespace; enforce configured length limits.''' LogLevel: Logging.LogLevel.InfoLevel
-Logging.LogMessage Message: $'''Return IsValid and ValidationMessage to caller.''' LogLevel: Logging.LogLevel.InfoLevel
+Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
+SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
+Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
+# Activity: Read Range [ExcelReadRange]
+LOOP FOREACH row IN dt_settings
+    SET row['NAME'] TO row['VALUE']
+END
+
+Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance XmlMapName: $'''''' DocumentPath: excelPath DocumentFormat: Excel.ExcelFormat.FromExtension
+**ENDREGION
+
+# ========================================================
+# SUBFLOW: SourcingBot/Framework/SaveJD.xaml
+# ========================================================
+**REGION SaveJD
+
+SET in_strRequiredSkills TO $''''''
+SET in_strAdditionalSkills TO $''''''
+SET in_strJobDescription TO $''''''
+SET in_strRequisitionID TO $''''''
+Variables.CreateNewList List=> jdJsonArray
+SET strJDList TO $''''''
+SET newJD TO $''''''
+SET intExists TO $''''''
+SET intloopCount TO 0
+
+File.ReadTextFromFile.ReadText File: $'''Data\config\JDList.json''' Encoding: File.TextFileEncoding.UTF8 Content=> strJDList
+Variables.ConvertJsonToCustomObject Json: strJDList CustomObject=> jdJsonArray
+LOOP WHILE True
+    IF jdJsonArray[intloopCount]['JD_Title'] = in_strJobDescription THEN
+        SET jdJsonArray[intloopCount]["Requisition_ID"] TO in_strRequisitionID
+        SET jdJsonArray[intloopCount]["Key_Skills"] TO in_strRequiredSkills
+        SET jdJsonArray[intloopCount]["May_Know_Skills"] TO in_strAdditionalSkills
+        SET intExists TO 1
+    END
+    SET intloopCount TO intloopCount + 1
+END
+IF intExists = 0 THEN
+    Variables.ConvertJsonToCustomObject Json: $'''{ \'JD_Title\': \'%in_strJobDescription%\', \'Key_Skills\': \'%in_strRequiredSkills%\', \'May_Know_Skills\': \'%in_strAdditionalSkills%\' }''' CustomObject=> new_jdJsonArrayItem
+    Variables.AddItemToList Item: new_jdJsonArrayItem List: jdJsonArray
+END
+Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
+SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
+File.WriteText File: $'''Data\config\JDList.json''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''%jdJsonArray%'''
+File.WriteText File: $'''Data\config\webjd.txt''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''data = \'%jdJsonArray%\';'''
 **ENDREGION
