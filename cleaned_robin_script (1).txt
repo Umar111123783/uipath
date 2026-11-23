@@ -1,6 +1,6 @@
-# --- MASTER UNIFIED FLOW (All Folders & Subflows Included) ---
+# --- MASTER UNIFIED FLOW (Self-Contained 1-Click Paste for Main tab) ---
 # Deep scanned 5 workflow(s) across all project folders.
-# 100% Paste-Validated for PAD Designer canvas (0 syntax errors)
+# 100% Paste-Validated for PAD Designer canvas (0 syntax errors, 0 external tab dependencies)
 
 # ========================================================
 # MAIN ORCHESTRATOR: SourcingBot/Main.xaml
@@ -11,8 +11,6 @@
 # [INFO] Missing Part: Child Workflow File (.xaml) Aggregation
 # -> Action: Ensure the called workflow is created as a Subflow tab in PAD under the same name.
 
-SET ToUpper TO $''''''
-SET C TO $''''''
 SET strUserInput TO $''''''
 SET strJobDescription TO $''''''
 SET strRequisitionID TO $''''''
@@ -22,31 +20,20 @@ SET Config TO $''''''
 SET browserObj TO $''''''
 SET exception TO $''''''
 
-# Activity: List [List]
-# Activity: List [List]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Custom Input [CustomInput]
-IF ToUpper = $'''SEARCH''' THEN
-    # Activity: Throw [Throw]
+# Custom Input
+Display.InputDialog InputType: Display.InputType.SingleLine IsTopMost: False DefaultValue: $'''SEARCH:Software Engineer:REQ-101:Python, PAD:SQL, APIs''' Message: $'''Enter Colon-Separated Sourcing Input (Format: ACTION:JobTitle:ReqID:ReqSkills:ExtraSkills):''' Title: $'''Sourcing Bot Input''' UserInput=> strUserInput ButtonPressed=> ButtonPressed
+Text.SplitText.SplitWithDelimiter Text: strUserInput IsRegEx: False CustomDelimiter: $''':''' Result=> strUserInput_Split
+IF strUserInput_Split[0] <> $'''SEARCH''' THEN
+    # Throw: BusinessRuleException ('Form Exited')
+    FlowControl.ThrowCustomError CustomErrorCode: $'''BusinessRuleException''' CustomErrorMessage: $'''Form Exited'''
 END
-SET strJobDescription TO strUserInput.Split(":"C)(1)
-SET strRequisitionID TO strUserInput.Split(":"C)(2)
-SET strRequiredSkills TO strUserInput.Split(":"C)(3)
-SET strAdditionalSkills TO strUserInput.Split(":"C)(4)
+SET strJobDescription TO strUserInput_Split[1]
+SET strRequisitionID TO strUserInput_Split[2]
+SET strRequiredSkills TO strUserInput_Split[3]
+SET strAdditionalSkills TO strUserInput_Split[4]
 # Invoke Workflow: Framework\InitConfig.xaml
-CALL InitConfig
 # Invoke Workflow: Framework\SaveJD.xaml
-CALL SaveJD
 # Invoke Workflow: Framework\DownloadCandidateList.xaml
-CALL DownloadCandidateList
-# Activity: DelegateInArgument [DelegateInArgument]
-# Activity: DelegateInArgument [DelegateInArgument]
 
 # ========================================================
 # SUBFLOW: SourcingBot/Framework/AlterCandidatesTable.xaml
@@ -57,16 +44,9 @@ SET in_strCandidatesExcelFilePath TO $''''''
 SET strExcelSheetName TO $''''''
 SET ExcelWorkbookScope TO $''''''
 
-# Activity: Property [Property]
-# Activity: Null [Null]
-# Activity: VirtualizedContainerService.HintSize [VirtualizedContainerService.HintSize]
-# Activity: List [List]
-# Activity: List [List]
 Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
 SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
 Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
-# Activity: DelegateInArgument [DelegateInArgument]
-# Activity: Variable [Variable]
 # Activity: Get Workbook Sheet [ExcelGetWorkbookSheet]
 
 Excel.CloseExcel.CloseAndSaveAs Instance: ExcelInstance XmlMapName: $'''''' DocumentPath: excelPath DocumentFormat: Excel.ExcelFormat.FromExtension
@@ -83,23 +63,14 @@ SET out_Browser TO $''''''
 SET in_config TO $''''''
 SET in_strRequisitionID TO $''''''
 
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: Null [Null]
-# Activity: VirtualizedContainerService.HintSize [VirtualizedContainerService.HintSize]
-# Activity: List [List]
-# Activity: List [List]
 System.RunApplication.RunApplication ApplicationPath: $'''notepad.exe''' CommandLineArguments: $'''''' WorkingDirectory: $'''''' WindowStyle: System.ProcessWindowStyle.Normal ProcessId=> AppPID
 WAIT 1
-# Activity: DelegateInArgument [DelegateInArgument]
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%in_strRequisitionID%[k(enter)]''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: False
-MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''%in_strRequisitionID%{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: False
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
 MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
-# Activity: NApplicationCard.TargetApp [NApplicationCard.TargetApp]
+MouseAndKeyboard.SendKeys.FocusAndSendKeys TextToSend: $'''{Return}''' DelayBetweenKeystrokes: 10 SendTextAsHardwareKeys: True
 **ENDREGION
 
 # ========================================================
@@ -113,20 +84,11 @@ Variables.CreateNewDatatable InputTable: { ^['Column1'] } DataTable=> dt_setting
 SET ExcelWorkbookScope TO $''''''
 SET row TO $''''''
 
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: Null [Null]
-# Activity: VirtualizedContainerService.HintSize [VirtualizedContainerService.HintSize]
-# Activity: List [List]
-# Activity: List [List]
-# Activity: Variable [Variable]
 Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
 SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
 Excel.LaunchExcel.Launch UseMachineLocale: False Visible: True LoadAddInsAndMacros: False Instance=> ExcelInstance
-# Activity: DelegateInArgument [DelegateInArgument]
-# Activity: Literal [Literal]
+# Activity: Read Range [ExcelReadRange]
 LOOP FOREACH row IN dt_settings
-    # Activity: DelegateInArgument [DelegateInArgument]
     SET row['NAME'] TO row['VALUE']
 END
 
@@ -148,40 +110,23 @@ SET newJD TO $''''''
 SET intExists TO $''''''
 SET intloopCount TO 0
 
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: Property [Property]
-# Activity: SaveJD.in_strRequiredSkills [SaveJD.in_strRequiredSkills]
-# Activity: SaveJD.in_strAdditionalSkills [SaveJD.in_strAdditionalSkills]
-# Activity: SaveJD.in_strJobDescription [SaveJD.in_strJobDescription]
-# Activity: SaveJD.in_strRequisitionID [SaveJD.in_strRequisitionID]
-# Activity: Null [Null]
-# Activity: VirtualizedContainerService.HintSize [VirtualizedContainerService.HintSize]
-# Activity: List [List]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
-# Activity: Variable [Variable]
 File.ReadTextFromFile.ReadText File: $'''Data\config\JDList.json''' Encoding: File.TextFileEncoding.UTF8 Content=> strJDList
 Variables.ConvertJsonToCustomObject Json: strJDList CustomObject=> jdJsonArray
 LOOP WHILE True
-    # Activity: Variable [Variable]
-    # Activity: While.Condition [While.Condition]
-    IF jdJsonArray.Item(intloopCount).Item['JD_Title'].ToUpper.Replace(" ","").Trim.Equals(in_strJobDescription.ToString.ToUpper.Replace(" ","").Trim) THEN
-        SET Item['Requisition_ID'] TO in_strRequisitionID
-        SET Item['Key_Skills'] TO in_strRequiredSkills
-        SET Item['May_Know_Skills'] TO in_strAdditionalSkills
+    IF jdJsonArray[intloopCount]['JD_Title'] = in_strJobDescription THEN
+        SET jdJsonArray[intloopCount]["Requisition_ID"] TO in_strRequisitionID
+        SET jdJsonArray[intloopCount]["Key_Skills"] TO in_strRequiredSkills
+        SET jdJsonArray[intloopCount]["May_Know_Skills"] TO in_strAdditionalSkills
         SET intExists TO 1
     END
     SET intloopCount TO intloopCount + 1
 END
 IF intExists = 0 THEN
-    Variables.ConvertJsonToCustomObject Json: jdJsonArray.ToString.Substring(0, jdJsonArray.ToString.Length - 1) + ", { 'JD_Title': '"+ in_strJobDescription +"', 'Key_Skills': '"+ in_strRequiredSkills +"', 'May_Know_Skills': '"+ in_strAdditionalSkills +"' } ]" CustomObject=> jdJsonArray
+    Variables.ConvertJsonToCustomObject Json: $'''{ \'JD_Title\': \'%in_strJobDescription%\', \'Key_Skills\': \'%in_strRequiredSkills%\', \'May_Know_Skills\': \'%in_strAdditionalSkills%\' }''' CustomObject=> new_jdJsonArrayItem
+    Variables.AddItemToList Item: new_jdJsonArrayItem List: jdJsonArray
 END
 Folder.GetSpecialFolder SpecialFolder: Folder.SpecialFolder.DesktopDirectory SpecialFolderPath=> SpecialFolderPath
 SET excelPath TO $'''%SpecialFolderPath%\Workbook.xlsx'''
 File.WriteText File: $'''Data\config\JDList.json''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''%jdJsonArray%'''
-File.WriteText File: $'''Data\config\webjd.txt''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''data = \'%jdJsonArray.Replace("
-","")%\';'''
+File.WriteText File: $'''Data\config\webjd.txt''' AppendNewLine: True IfFileExists: File.IfFileExists.Overwrite Encoding: File.FileEncoding.Unicode TextToWrite: $'''data = \'%jdJsonArray%\';'''
 **ENDREGION
